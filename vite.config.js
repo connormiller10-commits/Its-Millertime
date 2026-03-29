@@ -7,4 +7,8 @@ export default defineConfig({
           outDir: 'dist',
           sourcemap: false,
     },
+  esbuild: {
+          loader: 'jsx',
+          include: /SDR Agent/,
+  },
 })
