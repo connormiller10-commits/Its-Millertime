@@ -1,0 +1,653 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+
+const MC = {
+  bg: "#0B0D17", bgCard: "#111827", bgHover: "#1a2235", bgInput: "#0f1629",
+  border: "#1e2a42", borderLight: "#2a3a5a",
+  green: "#00E5A0", greenDim: "#00E5A066", greenBg: "#00E5A00d",
+  purple: "#7B61FF", purpleDim: "#7B61FF55", purpleBg: "#7B61FF0d",
+  blue: "#3B82F6", blueDim: "#3B82F655",
+  amber: "#F59E0B", amberDim: "#F59E0B55", amberBg: "#F59E0B0d",
+  text: "#F9FAFB", textDim: "#9CA3AF", textMuted: "#6B7280", textFaint: "#374151",
+};
+const TC = { 1: MC.green, 2: MC.amber, 3: MC.blue };
+const TL = { 1: "Tier 1", 2: "Tier 2", 3: "Tier 3" };
+const SYS = `You are Connor Miller's Territory SDR Agent for Monte Carlo Data — the data and AI observability platform. Monte Carlo monitors data pipelines end-to-end detecting freshness, volume, schema, distribution anomalies across data, systems, code, and AI models. Key integrations: Snowflake, Databricks, dbt, Airflow, Fivetran, BigQuery, Redshift. Customers: NASDAQ, Honeywell, Roche, Fox, JetBlue, Cisco, CNN, Intuit, Affirm, Mercedes-Benz, Toyota, Warner Bros Discovery, NYT, SoFi, M&T Bank. Always respond ONLY in valid JSON. No markdown, no preamble.`;
+const MCP_SERVERS = [
+  { type: "url", url: "https://mcp.getmc.ai/salesforce/mcp", name: "salesforce" },
+  { type: "url", url: "https://mcp.zoominfo.com/mcp", name: "zoominfo" },
+  { type: "url", url: "https://mcp.getmc.ai/gong/mcp", name: "gong" },
+  { type: "url", url: "https://gmail.mcp.claude.com/mcp", name: "gmail" },
+];
+
+const PRIORITIES = {"Albertsons":["Scaling AI across merchandising, labor scheduling, and supply chain to create structural cost advantages per Q3 2025 earnings call","Expanding AI-powered shopping assistant that increased basket size 10% and driving 21% digital sales growth","Building advanced cloud data infrastructure with Google, OpenAI, and Databricks to foundation enterprise AI per CEO Susan Morris"],"Amazon":["Deploying generative AI across retail operations including product recommendations, Alexa+, and fulfillment robotics","Expanding AWS AI services including Bedrock and SageMaker as primary cloud AI platform for enterprise customers","Investing heavily in AI infrastructure with $75B+ capex planned for 2025, primarily in AWS data centers and custom silicon"],"Nike":["Repositioning Nike Digital as a premium full-price channel with AI-driven personalization, reducing promotions per FY2026 strategy","Building unified customer data platform with ML/AI models powering journey orchestration and personalized digital experiences","Executing 'Win Now' turnaround under CEO Elliott Hill, realigning teams and rebalancing portfolio with sport-centered innovation"],"Microsoft":["Investing over $80B in AI-optimized data centers in FY2025 to train and deploy AI models globally","Scaling Microsoft Copilot across the enterprise stack — Office, GitHub, Azure, Security — as primary AI monetization engine","Expanding Azure AI platform including OpenAI partnership to capture enterprise AI workload migration"],"Expedia Group":["Building AI-powered travel planning assistant using generative AI to transform booking and customer service experience","Leveraging unified data platform across brands (Expedia, Hotels.com, Vrbo) for personalized pricing and recommendations","Driving operational efficiency through machine learning in fraud detection, dynamic pricing, and supply optimization"],"T-Mobile":["Targeting $3B incremental EBITDA from digitalization and AI by end of 2027 per Feb 2026 Capital Markets Day","Deploying T-Life AI agent that cut customer care calls 50% since 2021, handling end-to-end transactions per Q4 2025 earnings","Advancing AI-RAN network architecture and 6G roadmap positioning network as compute-aware fabric for AI services"],"Mondelēz International":["Deploying AI-powered demand forecasting and pricing optimization to protect margins amid severe cocoa price inflation","Leveraging data analytics and blockchain for supply chain traceability across Cocoa Life sustainability program","Using AI for consumer insight generation and personalized marketing activation across global snack brands per CTO"],"Costco WholeSale Corporation":["Deploying AI in pharmacy inventory systems achieving 98%+ in-stock rates with autonomous reordering per Q1 FY2026 earnings","Building early-stage personalized retail media platform that prioritizes member value, leveraging 70M+ membership data","Expanding AI-powered gas inventory optimization and applying similar models across fresh food and supply chain"],"lululemon":["Executing Power of Three x2 strategy targeting $12.5B revenue by 2026, doubling digital and men's revenue","Investing in AI-powered guest personalization and inventory optimization across 700+ global stores","Expanding international business with focus on China (70 to 220 stores) supported by data-driven market intelligence"],"Starbucks Corporation":["Scaling Green Dot Assist generative AI assistant across North American coffeehouses to improve store operations per Q1 FY2026","Investing hundreds of millions in automation and AI as part of Back to Starbucks turnaround under CEO Brian Niccol","Hiring Amazon veteran as CTO to rebuild technology foundation, targeting 4-minute café wait times through predictive staffing"],"Edward Jones":["Modernizing data and analytics platform to support 19,000+ financial advisors with AI-powered client insights","Building unified data infrastructure on Snowflake and Databricks to enable personalized wealth management recommendations","Deploying responsible AI framework for compliance-grade financial analytics and automated reporting"],"KinderCare Learning Centers":["Leveraging data analytics to optimize enrollment, staffing ratios, and center operations across 1,500+ childcare locations","Building Databricks-powered data platform for predictive analytics on child development outcomes and family engagement","Driving digital transformation of parent communications and operational reporting per strategic technology investments"],"Daimler Trucks North America":["Deploying AI-powered predictive maintenance and connected vehicle analytics across commercial truck fleet operations","Building data infrastructure for autonomous driving development and advanced driver assistance systems per Daimler Truck AG strategy","Optimizing manufacturing and supply chain operations through digital twin technology and machine learning"],"Providence Health & Services":["Implementing AI-powered clinical decision support and predictive analytics across 52 hospitals and 1,000+ clinics","Building enterprise data platform on Snowflake for population health management and value-based care analytics","Deploying ambient AI documentation tools to reduce clinician burnout and improve care quality per digital health strategy"],"PACCAR":["Building connected truck data platform for predictive maintenance and fleet optimization across Kenworth and Peterbilt brands","Deploying AI-powered manufacturing quality control and supply chain optimization across global production facilities","Advancing autonomous driving technology development through data infrastructure investments per digital strategy"],"Slalom":["Positioning as leading data and AI consulting partner, delivering enterprise AI solutions across Fortune 500 client base","Building internal AI accelerators and reusable frameworks on Snowflake, Databricks, and dbt for rapid client deployment","Expanding global capability center model to scale AI implementation services across 45+ offices"],"Coupang":["Scaling AI-powered logistics network across Korea's largest e-commerce platform with same-day delivery optimization","Deploying machine learning for personalized product recommendations and dynamic pricing across 100M+ product listings","Building AI infrastructure on Databricks for real-time demand forecasting and warehouse robotics automation"],"Blue Origin":["Building data infrastructure to support New Glenn orbital launch vehicle development and manufacturing analytics","Deploying AI-powered quality assurance and testing analytics for BE-4 engine production scaling per manufacturing roadmap","Leveraging predictive analytics for mission planning, launch operations, and Blue Ring orbital platform services"],"ON Semiconductor":["Deploying AI and automation in semiconductor manufacturing to optimize yield and reduce defect rates per FY2025 strategy","Building data-driven demand sensing and supply chain resilience for automotive and industrial chip markets","Leveraging AI for intelligent power management solutions positioning as leader in sustainable silicon for EV and industrial IoT"],"Avanade":["Scaling AI consulting practice as Microsoft's largest implementation partner, delivering Copilot and Azure AI solutions","Building proprietary AI accelerators for enterprise clients on Microsoft stack, targeting data and AI transformation deals","Expanding managed AI services offering to help enterprise clients operationalize and govern AI at scale"],"Amazon Web Services":["Expanding Bedrock foundation model platform and SageMaker as enterprise AI development and deployment standard","Investing in custom AI silicon (Trainium, Inferentia) and data center infrastructure to reduce AI compute costs","Scaling data and analytics services including Redshift, Glue, and Lake Formation to capture enterprise data modernization"],"NORDSTROM":["Deploying AI-powered personalized styling and product recommendations across digital and in-store per FY2025 strategy","Optimizing inventory management and demand forecasting with machine learning across 350+ locations post going-private","Building unified customer data platform on Snowflake to drive omnichannel personalization and loyalty analytics"],"Expeditors":["Investing in AI-powered freight visibility and logistics optimization across global supply chain network","Building data analytics capabilities for predictive demand planning and carrier performance scoring per technology roadmap","Deploying machine learning for customs compliance automation and trade document processing efficiency"],"LinkedIn":["Scaling AI-powered talent intelligence and job matching algorithms across 1B+ member platform per Microsoft integration","Deploying generative AI features across recruiter tools, content creation, and learning platform per 2025-2026 product roadmap","Leveraging Snowflake data infrastructure to power real-time engagement analytics and advertising optimization"],"Fortive":["Deploying AI across industrial IoT portfolio for predictive maintenance and operational intelligence per FBS strategy","Building enterprise data platform on Snowflake and Databricks to unify analytics across Fluke, Tektronix, and Accruent brands","Targeting AI-driven growth in connected reliability and facility management solutions per investor day presentations"],"Micron Technology":["Investing in AI-optimized memory and storage products (HBM3E) to capture exploding AI data center demand per FY2025 earnings","Deploying AI and ML in manufacturing processes to improve semiconductor yield and quality across global fabrication facilities","Building data analytics infrastructure for advanced process control and predictive equipment maintenance"],"REI":["Deploying data analytics for personalized member experiences and product recommendations across 15M+ co-op membership","Optimizing supply chain and inventory management with AI-powered demand forecasting for outdoor retail per digital strategy","Building unified customer data platform on Snowflake to drive omnichannel engagement and membership value analytics"],"Dutch Bros":["Scaling data-driven loyalty and mobile ordering platform across 900+ drive-thru locations per rapid expansion strategy","Building enterprise data infrastructure on Snowflake for customer analytics, site selection AI, and operational optimization","Leveraging Segment CDP for personalized marketing and customer lifetime value modeling per FY2025 digital strategy"],"Arca Continental":["Deploying AI-powered route optimization and demand forecasting across Coca-Cola bottling operations in Mexico and South America","Building data analytics capabilities for consumer insight generation and dynamic pricing per digital transformation roadmap","Investing in supply chain digitalization and manufacturing automation for operational efficiency gains"],"Alaska Airlines":["Integrating Hawaiian Airlines data systems post-acquisition while modernizing analytics on Databricks platform","Deploying AI-powered revenue management and dynamic pricing optimization across expanded Pacific route network","Building predictive analytics for maintenance, operations, and customer experience across merged 1,300+ daily flights"],"Lithia Motors":["Scaling AI-powered vehicle pricing and inventory optimization across 300+ dealership locations nationwide per Driveway platform","Building unified customer data platform for omnichannel auto retail experience from online to in-store per digital strategy","Deploying predictive analytics for customer lifetime value and financing optimization across $30B+ revenue base"],"University of Washington":["Expanding AI research infrastructure and interdisciplinary data science programs per UW Data Science Institute strategy","Building cloud-native research computing platform on Databricks and Snowflake for cross-department analytics","Deploying AI-powered student success analytics and administrative efficiency tools across 47,000+ student population"],"State of Oregon":["Modernizing state data infrastructure on Snowflake and Databricks for cross-agency analytics and reporting","Deploying AI-powered citizen services including automated benefits processing and fraud detection per digital government strategy","Building enterprise data governance framework to enable secure data sharing across state agencies"],"MultiCare Health System":["Deploying AI-powered clinical analytics and predictive patient flow optimization across 10 hospitals in Pacific Northwest","Building Snowflake-based enterprise data platform for population health management and value-based care reporting","Investing in ambient AI documentation and clinician decision support tools to improve care quality and efficiency"],"Savers":["Deploying data analytics for inventory optimization and pricing intelligence across 300+ thrift retail locations","Building customer analytics capabilities to drive loyalty and personalized marketing for value-conscious consumers","Leveraging Snowflake data platform for supply chain visibility and operational efficiency across global operations"],"InfoVia":["Building enterprise data platform for fleet analytics and equipment utilization optimization across rental operations","Deploying AI-powered demand forecasting and dynamic pricing for heavy equipment rental market optimization","Investing in IoT data infrastructure for connected equipment monitoring and predictive maintenance across fleet"],"The Greenbrier Companies":["Deploying data analytics for railcar manufacturing optimization and predictive quality control per digital transformation","Building connected railcar IoT platform for fleet monitoring and maintenance analytics across North American operations","Investing in AI-powered supply chain planning and demand forecasting for railcar and marine vessel production"],"Banfield Pet Hospital":["Deploying AI-powered veterinary clinical decision support across 1,000+ pet hospitals nationwide per Mars Petcare strategy","Building data analytics platform for preventive care insights and pet health outcome tracking across 3M+ patients","Leveraging AI for optimized scheduling, staffing, and operational efficiency across hospital network"],"Precision Castparts":["Building data infrastructure for aerospace manufacturing quality analytics and predictive maintenance under Berkshire Hathaway","Deploying AI-powered process control and defect detection across precision casting and forging operations","Investing in digital twin technology for complex aerospace component manufacturing optimization"],"PeaceHealth":["Deploying clinical AI tools for patient care optimization across hospitals in Washington, Oregon, and Alaska","Building analytics infrastructure for value-based care performance tracking and population health management","Investing in data governance and interoperability to enable AI-powered clinical decision support across system"],"WinCo Foods":["Investing in data analytics for supply chain and inventory optimization across employee-owned grocery chain","Building technology foundation for competitive pricing intelligence and demand forecasting per expansion strategy","Deploying operational analytics for labor optimization and store performance management across 130+ locations"],"LES SCHWAB - OR":["Building data analytics capabilities on Snowflake for tire inventory optimization and customer loyalty insights","Deploying operational analytics for service center scheduling and staffing optimization across 490+ locations","Investing in digital customer experience tools including online appointment scheduling and fleet management analytics"],"Arctic Slope Regional":["Modernizing data infrastructure across diversified energy, construction, and government services portfolio","Deploying analytics for operational efficiency across Arctic operations and remote site management","Building enterprise data governance for compliance and reporting across holding company subsidiaries"],"one.com":["Scaling cloud hosting platform reliability and performance monitoring through data-driven operations","Building customer analytics for churn prediction and personalized hosting plan recommendations","Investing in automated infrastructure monitoring and AI-powered customer support tools"],"ProKarma":["Positioning as AI-powered digital transformation consultancy delivering data engineering solutions to enterprise clients","Building reusable AI/ML frameworks and accelerators for rapid client deployment across industries","Expanding managed data services offering for mid-market and enterprise analytics modernization"],"AIA Insurance":["Deploying AI-powered underwriting and claims processing automation across Asia-Pacific insurance operations","Building advanced analytics on Databricks for customer risk scoring and personalized policy recommendations","Investing in real-time data infrastructure for health and wellness engagement across 40M+ policy holders"],"IMDb":["Enhancing content recommendation algorithms and personalized discovery experiences for 250M+ monthly users","Building AI-powered entertainment data platform for studios, advertisers, and content creators","Leveraging Amazon ecosystem data for enhanced audience analytics and advertising targeting capabilities"],"Craft Brew Alliance":["Building data analytics for craft beer demand forecasting and distribution optimization per portfolio strategy","Deploying supply chain analytics for ingredient sourcing and production planning across brewery network","Investing in consumer insights platform for brand positioning and marketing effectiveness measurement"],"Group1 Automotive":["Deploying AI-powered vehicle pricing and inventory optimization across 200+ dealership locations","Building unified customer data platform for omnichannel automotive retail and F&I optimization","Investing in digital retailing analytics and predictive customer lifetime value modeling"],"KakaoTalk":["Scaling AI-powered messaging and commerce platform serving South Korean digital ecosystem","Deploying generative AI features across KakaoTalk super-app for personalized content and merchant services","Building data infrastructure for real-time recommendation engines across payment, mobility, and entertainment verticals"],"eXp Realty":["Building AI-powered real estate analytics platform for 85,000+ cloud-based agents across 24 countries","Deploying predictive market intelligence and lead scoring for agent productivity optimization","Investing in virtual brokerage data infrastructure for training, transaction management, and compliance"],"Fred Meyer":["Optimizing store operations and inventory management through Kroger parent company data and AI initiatives","Deploying personalized pricing and promotions through Kroger Precision Marketing data platform","Building supply chain analytics for fresh food optimization and waste reduction across Pacific Northwest locations"],"Legacy Health":["Investing in clinical AI tools for patient care optimization across Portland metro hospital network","Building data analytics infrastructure for population health management and quality reporting","Deploying AI-powered operational analytics for capacity planning and patient flow optimization"],"Infratil":["Building data analytics capabilities across diversified infrastructure portfolio including digital and energy assets","Deploying AI-powered operational monitoring for renewable energy and data center investments","Investing in portfolio analytics and ESG reporting infrastructure across New Zealand and Australian operations"],"Outlook":["Building scalable data platform for email and productivity service reliability monitoring","Deploying AI-powered spam detection, smart inbox features, and personalized user experience","Investing in data infrastructure for enterprise collaboration analytics and usage insights"],"Federal Wildland Fire":["Deploying AI-powered wildfire prediction and risk modeling using satellite and sensor data across federal lands","Building data infrastructure on Databricks for real-time fire behavior analytics and resource allocation","Investing in geospatial data platform for cross-agency fire management coordination and post-fire recovery planning"],"UI Expert Witness Group":["Building data analytics platform for research insights and expert witness case analysis","Deploying AI-powered document review and evidence analysis tools for litigation support","Investing in knowledge management infrastructure for expert testimony preparation and case research"],"U.S. Department of Defense":["Advancing CDAO (Chief Digital and AI Office) strategy for enterprise AI adoption across military branches","Deploying AI-powered logistics, predictive maintenance, and decision support across defense operations","Building secure data mesh architecture for cross-domain data sharing and joint force analytics"],"State of Idaho":["Modernizing state IT infrastructure on Snowflake for cross-agency data analytics and citizen services","Deploying AI-powered fraud detection and benefits administration optimization across state programs","Building enterprise data governance framework for secure interagency data sharing and reporting"],"OHSU Foundation":["Building data analytics for donor engagement optimization and fundraising campaign effectiveness","Deploying predictive modeling for alumni and donor lifetime value across Oregon Health & Science University network","Investing in CRM data integration for personalized outreach and grant management analytics"],"Visit Washington DC":["Deploying tourism analytics for visitor flow optimization and destination marketing effectiveness","Building data platform for real-time tourism demand forecasting and economic impact reporting","Investing in AI-powered digital marketing and personalized travel recommendation engine"],"Dept. of Ecology":["Building environmental data platform for regulatory compliance monitoring and reporting across Washington State","Deploying AI-powered environmental risk assessment and pollution source identification analytics","Investing in geospatial data infrastructure for water quality, air quality, and climate impact tracking"],"Seattle.gov":["Modernizing city data infrastructure for cross-department analytics and open data transparency initiatives","Deploying AI-powered citizen service optimization including permitting, transportation, and public safety analytics","Building smart city data platform for traffic management, infrastructure maintenance, and equity-focused resource allocation"]};
+
+const ACCTS = [{"id":"0015Y00002fuP9WQAU","n":"Albertsons","ind":"Grocery Retail","emp":285000,"st":"Idaho","ci":"Boise","w":"albertsons.com","ts":["Snowflake","Databricks","Fivetran","Alation"],"is":98.0,"bs":"Purchase","as":100.0,"oo":1,"e30":15,"lc":"Stage 5 - Business Terms Concluded","cc":154,"mq":1,"ss":"E) $5,000+","ds":"E) $5,000+","dt":null,"cb":"Snowflake, Fivetran, Databricks, Alation","dae":"Brian Butler","ch":false,"t":1,"j":["6sense: 98, Purchase","1 opp(s): Stage 5 - Business Terms Concluded","Stack: Snowflake,Databricks,Fivetran,Alation"]},{"id":"0015Y00002fuOMEQA2","n":"Amazon","ind":"Apparel & Accessories Retail","emp":10754,"st":"Washington","ci":"Seattle","w":"amazon.com","ts":["Snowflake","Looker","Fivetran","Databricks","Cube"],"is":99.0,"bs":"Purchase","as":99.5,"oo":1,"e30":1621,"lc":"Stage 2 - Discovery & Qualification","cc":3007,"mq":34,"ss":"A) $500,000+","ds":"A) $500,000+","dt":null,"cb":"Fivetran, Databricks, Cube, Atlan","dae":"Nick Cary","ch":false,"t":1,"j":["6sense: 99, Purchase","1 opp(s): Stage 2 - Discovery & Qualification","Stack: Snowflake,Looker,Fivetran,Databricks"]},{"id":"0015Y00002embHNQAY","n":"Nike","ind":"Textiles & Apparel","emp":77025,"st":"Oregon","ci":"Beaverton","w":"nike.com","ts":["Snowflake","Segment"],"is":95.0,"bs":"Purchase","as":99.4,"oo":0,"e30":509,"lc":"Stage 1 - Identifying Opportunity","cc":429,"mq":1,"ss":"B) $100,000+","ds":"B) $100,000+","dt":1125.0,"cb":"","dae":"","ch":false,"t":1,"j":["6sense: 95, Purchase","Stack: Snowflake,Segment","Eng 30d: 509m"]},{"id":"0015Y00002fuOClQAM","n":"Microsoft","ind":"Database & File Management Software","emp":228000,"st":"Washington","ci":"Redmond","w":"microsoft.com","ts":["Snowflake","Polyxer","Hightouch","Databricks"],"is":99.0,"bs":"Purchase","as":99.1,"oo":0,"e30":335,"lc":"Prospect","cc":2039,"mq":13,"ss":"A) $500,000+","ds":"A) $500,000+","dt":200.0,"dae":"Eddy Amarouche","ch":false,"t":1,"j":["6sense: 99, Purchase","Stack: Snowflake,Polyxer,Hightouch,Databricks","Eng 30d: 335m"]},{"id":"001EY000003YgJhYAK","n":"Expedia Group","ind":"Travel Agencies & Services","emp":16000,"st":"Washington","ci":"Seattle","w":"www.expediagroup.com","ts":["Hightouch","Databricks"],"is":92.0,"bs":"Purchase","as":98.5,"oo":0,"e30":522,"lc":"Prospect","cc":511,"mq":2,"ss":"B) $100,000+","ds":"B) $100,000+","dt":null,"cb":"Hightouch, Databricks","dae":"Chris Scheuerman","ch":false,"t":1,"j":["6sense: 92, Purchase","Stack: Hightouch,Databricks","Eng 30d: 522m"]},{"id":"0015Y00002fuOHoQAM","n":"T-Mobile","ind":"Telephony & Wireless","emp":2102,"st":"Washington","ci":"Bellevue","w":"https://www.t-mobile.com","ts":["Snowflake","Fivetran","dbt Labs","Databricks"],"is":93.0,"bs":"Purchase","as":98.3,"oo":1,"e30":410,"lc":"Stage 2 - Discovery & Qualification","cc":402,"mq":1,"ss":"B) $100,000+","ds":"B) $100,000+","dt":null,"dae":"TBH Director - AMER Enterprise & Emerging - Telco 1","ch":false,"t":1,"j":["6sense: 93, Purchase","1 opp(s): Stage 2 - Discovery & Qualification","Stack: Snowflake,Fivetran,dbt Labs,Databricks"]},{"id":"0015Y00002fuOLAQA2","n":"Mondel\u0113z International","ind":"Food & Beverage","emp":91000,"st":"Illinois","ci":"Chicago","w":"mondelezinternational.com","ts":["Snowflake","dbt Labs","Databricks"],"is":96.0,"bs":"Purchase","as":97.3,"oo":1,"e30":104,"lc":"Stage 2 - Discovery & Qualification","cc":139,"mq":4,"ss":"E) $5,000+","ds":"E) $5,000+","dt":572.0,"dae":"Robert Owen","ch":false,"t":1,"j":["6sense: 96, Purchase","1 opp(s): Stage 2 - Discovery & Qualification","Stack: Snowflake,dbt Labs,Databricks"]},{"id":"0015Y00002fuOPqQAM","n":"Costco WholeSale Corporation","ind":"Department Stores, Shopping Centers & Superstores","emp":341000,"st":"Washington","ci":"Issaquah","w":"costco.com","ts":["Snowflake","dbt Labs","Databricks"],"is":87.0,"bs":"Purchase","as":96.8,"oo":0,"e30":78,"lc":"Prospect","cc":109,"mq":1,"ss":"","ds":"B) $100,000+","dt":255.0,"dae":"Brian Butler","ch":false,"t":1,"j":["6sense: 87, Purchase","Stack: Snowflake,dbt Labs,Databricks","Eng 30d: 78m"]},{"id":"0015Y00002embGKQAY","n":"lululemon","ind":"Sporting & Recreational Equipment Retail","emp":39000,"st":"British Columbia","ci":"Vancouver","w":"lululemon.com","ts":["Databricks","Striim","Snowflake","Hightouch","Fivetran"],"is":96.0,"bs":"Purchase","as":96.7,"oo":2,"e30":74,"lc":"Stage 3 - Solution Validation","cc":124,"mq":3,"ss":"C) $50,000+","ds":"C) $50,000+","dt":80.0,"cb":"Striim, Snowflake, Hightouch, Fivetran, Databricks","dae":"Jade Chislett","ch":false,"t":1,"j":["6sense: 96, Purchase","2 opp(s): Stage 3 - Solution Validation","Stack: Databricks,Striim,Snowflake,Hightouch"]},{"id":"001EY000003VOuwYAG","n":"Starbucks Corporation","ind":"Restaurants","emp":360100,"st":"Washington","ci":"Seattle","w":"http://www.starbucks.com/","ts":["Databricks"],"is":71.0,"bs":"Decision","as":92.8,"oo":1,"e30":45,"lc":"Stage 2 - Discovery & Qualification","cc":129,"mq":3,"ss":"","ds":"C) $50,000+","dt":null,"dae":"Kyle Pirnat","ch":false,"t":1,"j":["6sense: 71, Decision","1 opp(s): Stage 2 - Discovery & Qualification","Stack: Databricks"]},{"id":"0015Y00002fuPZcQAM","n":"Edward Jones","ind":"Investment Banking","emp":55000,"st":"Missouri","ci":"St. Louis","w":"edwardjones.com","ts":["Snowflake","Databricks"],"is":91.0,"bs":"Purchase","as":86.0,"oo":1,"e30":99,"lc":"Stage 2 - Discovery & Qualification","cc":149,"mq":4,"ss":"D) $20,000+","ds":"D) $20,000+","dt":null,"dae":"Eric Storm","ch":false,"t":1,"j":["6sense: 91, Purchase","1 opp(s): Stage 2 - Discovery & Qualification","Stack: Snowflake,Databricks"]},{"id":"001EY000002rsxjYAA","n":"KinderCare Learning Centers","ind":"Childcare","emp":43690,"st":"Oregon","ci":"Lake Oswego","w":"https://www.kcecareers.com/","ts":["Fivetran","Databricks"],"is":0.0,"bs":"Target","as":82.5,"oo":1,"e30":17,"lc":"Stage 2 - Discovery & Qualification","cc":22,"mq":2,"ss":"","ds":"","dt":null,"dae":"Rob Harper","ch":false,"t":1,"j":["1 opp(s): Stage 2 - Discovery & Qualification","Stack: Fivetran,Databricks","Eng 30d: 17m"]},{"id":"001EY000002pFCHYA2","n":"Daimler Trucks North America","ind":"Motor Vehicles","emp":20000,"st":"Oregon","ci":"Portland","w":"daimler-trucksnorthamerica.com","ts":[],"is":53.0,"bs":"Consideration","as":69.3,"oo":1,"e30":0,"lc":"Stage 2 - Discovery & Qualification","cc":15,"mq":2,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":1,"j":["6sense: 53, Consideration","1 opp(s): Stage 2 - Discovery & Qualification","2 MQLs (90d)"]},{"id":"0015Y00002fuPFWQA2","n":"Providence Health & Services","ind":"Medical & Surgical Hospitals","emp":122000,"st":"Washington","ci":"Renton","w":"providence.org","ts":["Snowflake","Fivetran","Databricks"],"is":97.0,"bs":"Purchase","as":0,"oo":1,"e30":55,"lc":"Stage 2 - Discovery & Qualification","cc":137,"mq":1,"ss":"D) $20,000+","ds":"D) $20,000+","dt":null,"cb":"Snowflake, Snowflake, Fivetran, Fivetran, Databricks","dae":"Julie Widmann","ch":false,"t":1,"j":["6sense: 97, Purchase","1 opp(s): Stage 2 - Discovery & Qualification","Stack: Snowflake,Fivetran,Databricks"]},{"id":"0015Y00002fuPYWQA2","n":"PACCAR","ind":"Motor Vehicles","emp":30100,"st":"Washington","ci":"Bellevue","w":"paccar.com","ts":["Snowflake","Sigma Computing","Databricks"],"is":54.0,"bs":"Consideration","as":96.7,"oo":0,"e30":17,"lc":"Prospect","cc":79,"mq":0,"ss":"E) $5,000+","ds":"F) $1,000+","dt":null,"dae":"Brian Evans","ch":false,"t":2,"j":["6sense: 54, Consideration","Stack: Snowflake,Sigma Computing,Databricks","Eng 30d: 17m"]},{"id":"0015Y00002xH8BUQA0","n":"Slalom","ind":"Management Consulting","emp":13000,"st":"Washington","ci":"Seattle","w":"http://www.slalom.com","ts":["Snowflake","dbt Labs","Databricks"],"is":95.0,"bs":"Purchase","as":95.5,"oo":0,"e30":49,"lc":"Prospect","cc":366,"mq":1,"ss":"E) $5,000+","ds":"E) $5,000+","dt":null,"cb":"Snowflake, dbt Labs, Databricks","dae":"Sharmey Shah","ch":false,"t":2,"j":["6sense: 95, Purchase","Stack: Snowflake,dbt Labs,Databricks","Eng 30d: 49m"]},{"id":"0015Y00002emajGQAQ","n":"Coupang","ind":"Customer Relationship Management (CRM) Software","emp":95000,"st":"Seoul","ci":"Seoul","w":"coupang.com","ts":["Redshift","Hive","Tableau","Airflow","Databricks"],"is":71.0,"bs":"Decision","as":95.2,"oo":0,"e30":32,"lc":"Prospect","cc":99,"mq":2,"ss":"","ds":"","dt":103.0,"dae":"","ch":false,"t":2,"j":["6sense: 71, Decision","Stack: Redshift,Hive,Tableau,Airflow","Eng 30d: 32m"]},{"id":"0015Y00002emayBQAQ","n":"Blue Origin","ind":"Aerospace & Defense","emp":17616,"st":"Washington","ci":"Kent","w":"https://www.blueorigin.com/","ts":["Databricks"],"is":70.0,"bs":"Decision","as":94.0,"oo":0,"e30":11,"lc":"Prospect","cc":79,"mq":0,"ss":"","ds":"E) $5,000+","dt":32.0,"cb":"Databricks","dae":"Nick Cary","ch":false,"t":2,"j":["6sense: 70, Decision","Stack: Databricks","Eng 30d: 11m"]},{"id":"0015Y00002fuPKxQAM","n":"ON Semiconductor","ind":"Electronics","emp":26400,"st":"Arizona","ci":"Phoenix","w":"onsemi.com","ts":["Snowflake"],"is":61.0,"bs":"Consideration","as":92.4,"oo":0,"e30":6,"lc":"Prospect","cc":54,"mq":0,"ss":"E) $5,000+","ds":"E) $5,000+","dt":null,"dae":"","ch":false,"t":2,"j":["6sense: 61, Consideration","Stack: Snowflake","Eng 30d: 6m"]},{"id":"001EY000003I9qGYAS","n":"Avanade","ind":"Custom Software & IT Services","emp":60000,"st":"Washington","ci":"Seattle","w":"http://www.avanade.com","ts":["Polyxer"],"is":64.0,"bs":"Consideration","as":90.1,"oo":0,"e30":13,"lc":"Prospect","cc":144,"mq":0,"ss":"E) $5,000+","ds":"E) $5,000+","dt":null,"dae":"","ch":false,"t":2,"j":["6sense: 64, Consideration","Stack: Polyxer","Eng 30d: 13m"]},{"id":"0015Y00002j1pbwQAA","n":"Dutch Bros","ind":"Restaurants","emp":20000,"st":"Oregon","ci":"Grants Pass","w":"dutchbros.com","ts":["Segment","Snowflake"],"is":41.0,"bs":"Awareness","as":86.8,"oo":0,"e30":1,"lc":"Prospect","cc":17,"mq":0,"ss":"","ds":"","dt":null,"cb":"Snowflake","dae":"","ch":false,"t":2,"j":["6sense: 41, Awareness","Stack: Segment,Snowflake","Eng 30d: 1m"]},{"id":"001PP00000hbLkfYAE","n":"Arca Continental","ind":"Food & Beverage","emp":15141,"st":"Nuevo Leon","ci":"Santa Lucia","w":"arcacontal.com","ts":[],"is":71.0,"bs":"Decision","as":86.7,"oo":0,"e30":0,"lc":"Prospect","cc":15,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":2,"j":["6sense: 71, Decision"]},{"id":"0015Y00002fuOUbQAM","n":"Amazon Web Services","ind":"Software & Services","emp":140000,"st":"Washington","ci":"Seattle","w":"aws.amazon.com","ts":["Snowflake","Fivetran","CI&T","Atlan"],"is":70.0,"bs":"Decision","as":84.8,"oo":0,"e30":3,"lc":"Prospect","cc":63,"mq":0,"ss":"A) $500,000+","ds":"A) $500,000+","dt":null,"dae":"","ch":false,"t":2,"j":["6sense: 70, Decision","Stack: Snowflake,Fivetran,CI&T,Atlan","Eng 30d: 3m"]},{"id":"0015Y00002fuPV0QAM","n":"NORDSTROM","ind":"Department Stores, Shopping Centers & Superstores","emp":55000,"st":"Washington","ci":"Seattle","w":"nordstrom.com","ts":["Snowflake"],"is":86.0,"bs":"Purchase","as":83.0,"oo":0,"e30":37,"lc":"Prospect","cc":117,"mq":0,"ss":"C) $50,000+","ds":"","dt":null,"dae":"","ch":false,"t":2,"j":["6sense: 86, Purchase","Stack: Snowflake","Eng 30d: 37m"]},{"id":"001EY000003e5aXYAQ","n":"Expeditors","ind":"Freight & Logistics Services","emp":20170,"st":"Washington","ci":"Seattle","w":"www.expeditors.com","ts":[],"is":71.0,"bs":"Decision","as":81.5,"oo":0,"e30":5,"lc":"Prospect","cc":41,"mq":0,"ss":"","ds":"E) $5,000+","dt":null,"dae":"","ch":false,"t":2,"j":["6sense: 71, Decision","Eng 30d: 5m"]},{"id":"0015Y00002fuObxQAE","n":"LinkedIn","ind":"Social Networks","emp":18500,"st":"California","ci":"Sunnyvale","w":"linkedin.com","ts":["Snowflake"],"is":98.0,"bs":"Purchase","as":81.2,"oo":0,"e30":98,"lc":"Stage 1 - Identifying Opportunity","cc":389,"mq":1,"ss":"B) $100,000+","ds":"B) $100,000+","dt":2.0,"dae":"","ch":false,"t":2,"j":["6sense: 98, Purchase","Stack: Snowflake","Eng 30d: 98m"]},{"id":"0015Y00002fuPa8QAE","n":"Fortive","ind":"Holding Companies & Conglomerates","emp":18000,"st":"Washington","ci":"Everett","w":"fortive.com","ts":["Snowflake","Databricks","Databricks_2025","Snowflake_2025"],"is":50.0,"bs":"Consideration","as":79.0,"oo":0,"e30":2,"lc":"","cc":21,"mq":0,"ss":"","ds":"","dt":null,"dae":"Fidel Fernandez","ch":false,"t":2,"j":["6sense: 50, Consideration","Stack: Snowflake,Databricks,Databricks_2025,Snowflake_2025","Eng 30d: 2m"]},{"id":"001PP00000KwehVYAR","n":"Micron Technology","ind":"Electronics","emp":53000,"st":"Idaho","ci":"Boise","w":"http://micron.com","ts":["Snowflake"],"is":87.0,"bs":"Purchase","as":78.7,"oo":0,"e30":47,"lc":"Prospect","cc":109,"mq":1,"ss":"E) $5,000+","ds":"","dt":null,"dae":"","ch":false,"t":2,"j":["6sense: 87, Purchase","Stack: Snowflake","Eng 30d: 47m"]},{"id":"0015Y00002fuORWQA2","n":"REI","ind":"Sporting & Recreational Equipment Retail","emp":16000,"st":"Washington","ci":"Kent","w":"rei.com","ts":["Snowflake"],"is":51.0,"bs":"Consideration","as":77.7,"oo":0,"e30":17,"lc":"Prospect","cc":64,"mq":0,"ss":"C) $50,000+","ds":"","dt":null,"cb":"","dae":"","ch":false,"t":2,"j":["6sense: 51, Consideration","Stack: Snowflake","Eng 30d: 17m"]},{"id":"001EY000003dD2CYAU","n":"Arctic Slope Regional","ind":"Holding Companies & Conglomerates","emp":7000,"st":"Alaska","ci":"Barrow","w":"www.asrc.com","ts":["Databricks_2025"],"is":51.0,"bs":"Consideration","as":75.5,"oo":0,"e30":0,"lc":"","cc":13,"mq":0,"ss":"","ds":"","dt":null,"dae":"Ashleigh Cole","ch":false,"t":2,"j":["6sense: 51, Consideration","Stack: Databricks_2025"]},{"id":"0015Y00002emaLLQAY","n":"LES SCHWAB - OR","ind":"Automobile Parts Stores","emp":7000,"st":"Oregon","ci":"Bend","w":"https://www.lesschwab.com/","ts":["Snowflake","Hex"],"is":35.0,"bs":"Awareness","as":74.9,"oo":0,"e30":0,"lc":"Prospect","cc":17,"mq":0,"ss":"E) $5,000+","ds":"","dt":8.0,"cb":"Hex","dae":"","ch":false,"t":2,"j":["6sense: 35, Awareness","Stack: Snowflake,Hex","Data team ~8"]},{"id":"0015Y00002fuP5SQAU","n":"Lithia Motors","ind":"Automobile Dealers","emp":30000,"st":"Oregon","ci":"Medford","w":"lithia.com","ts":["Snowflake","Databricks","Fivetran","Databricks_2025","Snowflake_2025"],"is":58.0,"bs":"Consideration","as":72.5,"oo":0,"e30":2,"lc":"","cc":26,"mq":0,"ss":"","ds":"","dt":null,"cb":"Snowflake,Databricks,,Fivetran,Databricks_2025, Snowflake_2025","dae":"Ryan Colpaart","ch":false,"t":2,"j":["6sense: 58, Consideration","Stack: Snowflake,Databricks,Fivetran,Databricks_2025","Eng 30d: 2m"]},{"id":"001PP00000KAIrQYAX","n":"InfoVia","ind":"Other Rental Stores (Furniture, A/V, Construction & Industrial Equipment)","emp":28500,"st":"Connecticut","ci":"Stamford","w":"http://www.unitedrentals.com","ts":["Databricks_2025","Snowflake_2025"],"is":62.0,"bs":"Consideration","as":72.0,"oo":0,"e30":26,"lc":"Prospect","cc":11,"mq":0,"ss":"","ds":"","dt":null,"dae":"Alejandro de Lara","ch":false,"t":2,"j":["6sense: 62, Consideration","Stack: Databricks_2025,Snowflake_2025","Eng 30d: 26m"]},{"id":"001EY000002rswqYAA","n":"Savers","ind":"Flowers, Gifts & Specialty Stores","emp":24000,"st":"Washington","ci":"Bellevue","w":"savers.com","ts":["Snowflake"],"is":51.0,"bs":"Consideration","as":66.0,"oo":0,"e30":0,"lc":"Prospect","cc":7,"mq":0,"ss":"E) $5,000+","ds":"","dt":null,"cb":"Snowflake","dae":"","ch":false,"t":2,"j":["6sense: 51, Consideration","Stack: Snowflake","on snowflake but only 1 data engineer"]},{"id":"001EY000002P3BMYA0","n":"The Greenbrier Companies","ind":"Industrial Machinery & Equipment","emp":11000,"st":"Oregon","ci":"Lake Oswego","w":"https://www.gbrx.com/","ts":["Snowflake","Databricks","Databricks_2025"],"is":50.0,"bs":"Consideration","as":61.2,"oo":0,"e30":1,"lc":"","cc":10,"mq":0,"ss":"","ds":"","dt":null,"dae":"Nick Cary","ch":false,"t":2,"j":["6sense: 50, Consideration","Stack: Snowflake,Databricks,Databricks_2025","Eng 30d: 1m"]},{"id":"001EY000002jNpSYAU","n":"Alaska Airlines","ind":"Airlines, Airports & Air Services","emp":32676,"st":"Washington","ci":"Seattle","w":"https://www.alaskaair.com/","ts":["Databricks","Alation"],"is":60.0,"bs":"Consideration","as":49.2,"oo":0,"e30":3,"lc":"Prospect","cc":84,"mq":0,"ss":"","ds":"C) $50,000+","dt":null,"dae":"Chris Scheuerman","ch":false,"t":2,"j":["6sense: 60, Consideration","Stack: Databricks,Alation","Eng 30d: 3m"]},{"id":"0015Y00002fuPA3QAM","n":"MultiCare Health System","ind":"Medical & Surgical Hospitals","emp":22000,"st":"Washington","ci":"Tacoma","w":"multicare.org","ts":["Snowflake"],"is":52.0,"bs":"Consideration","as":0,"oo":0,"e30":1,"lc":"","cc":4,"mq":0,"ss":"","ds":"","dt":null,"cb":"","dae":"","ch":false,"t":2,"j":["6sense: 52, Consideration","Stack: Snowflake","Eng 30d: 1m"]},{"id":"001EY000002rtBnYAI","n":"State of Oregon","ind":"State","emp":40000,"st":"Oregon","ci":"Salem","w":"oregon.gov","ts":["Snowflake","Databricks","Alation"],"is":78.0,"bs":"Decision","as":0,"oo":0,"e30":9,"lc":"Prospect","cc":24,"mq":1,"ss":"","ds":"D) $20,000+","dt":null,"dae":"Cameron Kahn","ch":false,"t":2,"j":["6sense: 78, Decision","Stack: Snowflake,Databricks,Alation","Eng 30d: 9m"]},{"id":"001EY000002rtEMYAY","n":"one.com","ind":"Content & Collaboration Software","emp":206,"st":"Hovedstaden","ci":"Copenhagen","w":"one.com","ts":["Hightouch"],"is":0.0,"bs":"Target","as":90.3,"oo":0,"e30":0,"lc":"Prospect","cc":3,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":["Stack: Hightouch"]},{"id":"001EY00000373DyYAI","n":"ProKarma","ind":"Business Intelligence (BI) Software","emp":653,"st":"Nebraska","ci":"Omaha","w":"prokarma.com","ts":[],"is":73.0,"bs":"Decision","as":73.9,"oo":0,"e30":0,"lc":"","cc":4,"mq":0,"ss":"E) $5,000+","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":["6sense: 73, Decision"]},{"id":"0015Y00002emad8QAA","n":"AIA Insurance","ind":"Insurance","emp":63,"st":"Central and Western","ci":"Singapore","w":"https://www.aia.com/en/index.html","ts":["Databricks","Databricks_2025"],"is":83.0,"bs":"Decision","as":71.5,"oo":0,"e30":4,"lc":"Prospect","cc":36,"mq":0,"ss":"","ds":"","dt":13.0,"dae":"TBH Director - APJ - Asean Strategic Core FINS","ch":false,"t":3,"j":["6sense: 83, Decision","Stack: Databricks,Databricks_2025","Eng 30d: 4m"]},{"id":"001EY000002rt7CYAQ","n":"Banfield Pet Hospital","ind":"Veterinary Services","emp":3600,"st":"Washington","ci":"Vancouver","w":"banfield.com","ts":[],"is":69.0,"bs":"Consideration","as":65.7,"oo":0,"e30":0,"lc":"","cc":4,"mq":0,"ss":"E) $5,000+","ds":"E) $5,000+","dt":22.0,"dae":"","ch":false,"t":3,"j":["6sense: 69, Consideration","Data team ~22"]},{"id":"001EY000003yXWbYAM","n":"IMDb","ind":"Data Collection & Internet Portals","emp":800,"st":"Washington","ci":"Seattle","w":"www.imdb.com","ts":[],"is":57.0,"bs":"Consideration","as":63.9,"oo":0,"e30":0,"lc":"","cc":3,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":["6sense: 57, Consideration"]},{"id":"001PP00000KD8NjYAL","n":"Craft Brew Alliance","ind":"Food & Beverage","emp":608,"st":"Oregon","ci":"Portland","w":"http://craftbrew.com","ts":[],"is":53.0,"bs":"Consideration","as":43.5,"oo":0,"e30":0,"lc":"","cc":1,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":["6sense: 53, Consideration"]},{"id":"001PP000013BE2sYAG","n":"Group1 Automotive","ind":"Automobile Dealers","emp":20413,"st":"British Columbia","ci":"Vancouver","w":"www.group1auto.com","ts":[],"is":null,"bs":"","as":39.3,"oo":0,"e30":0,"lc":"Prospect","cc":5,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":[]},{"id":"001PP00000KrAAfYAN","n":"KakaoTalk","ind":"Telephony & Wireless","emp":9,"st":"Hawaii","ci":"Honolulu","w":"http://www.kakao.com","ts":[],"is":87.0,"bs":"Purchase","as":30.3,"oo":0,"e30":0,"lc":"","cc":6,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":["6sense: 87, Purchase"]},{"id":"001PP00000KCklOYAT","n":"eXp Realty","ind":"Real Estate","emp":2016,"st":"Washington","ci":"Bellingham","w":"www.exprealty.com","ts":[],"is":52.0,"bs":"Consideration","as":25.5,"oo":0,"e30":2,"lc":"","cc":9,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":["6sense: 52, Consideration","Eng 30d: 2m"]},{"id":"001PP00000ZlzAMYAZ","n":"WinCo Foods","ind":"Grocery Retail","emp":20000,"st":"Idaho","ci":"Boise","w":"wincofoods.com","ts":[],"is":29.0,"bs":"Awareness","as":25.5,"oo":0,"e30":0,"lc":"","cc":2,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":["6sense: 29, Awareness"]},{"id":"001PP000012lifoYAA","n":"Fred Meyer","ind":"Department Stores, Shopping Centers & Superstores","emp":39505,"st":"Oregon","ci":"Portland","w":"www.fredmeyer.com","ts":[],"is":0.0,"bs":"Target","as":24.6,"oo":0,"e30":0,"lc":"Prospect","cc":0,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":[]},{"id":"001EY0000047rHhYAI","n":"Precision Castparts","ind":"Aerospace & Defense","emp":20000,"st":"Oregon","ci":"Lake Oswego","w":"www.precast.com","ts":[],"is":26.0,"bs":"Awareness","as":22.8,"oo":0,"e30":0,"lc":"","cc":5,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":["6sense: 26, Awareness"]},{"id":"001EY000003kZS9YAM","n":"University of Washington","ind":"Colleges & Universities","emp":32056,"st":"Washington","ci":"Seattle","w":"www.washington.edu","ts":["Databricks_2025","Snowflake_2025"],"is":98.0,"bs":"Purchase","as":0,"oo":0,"e30":110,"lc":"","cc":11,"mq":0,"ss":"C) $50,000+","ds":"C) $50,000+","dt":null,"dae":"Rob Harper","ch":false,"t":3,"j":["6sense: 98, Purchase","Stack: Databricks_2025,Snowflake_2025","Eng 30d: 110m"]},{"id":"001PP000012lif5YAA","n":"Legacy Health","ind":"Medical & Surgical Hospitals","emp":14000,"st":"Oregon","ci":"Portland","w":"www.legacyhealth.org","ts":[],"is":52.0,"bs":"Consideration","as":0,"oo":0,"e30":0,"lc":"Prospect","cc":0,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":["6sense: 52, Consideration"]},{"id":"001PP00001S60cbYAB","n":"Infratil","ind":"\u2014","emp":10,"st":null,"ci":"Wellington","w":"infratil.com","ts":[],"is":null,"bs":"","as":0,"oo":1,"e30":0,"lc":"Prospect","cc":11,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":[]},{"id":"001EY000003dD3tYAE","n":"Outlook","ind":"Database & File Management Software","emp":127,"st":"Washington","ci":"Redmond","w":"outlook.live.com","ts":[],"is":null,"bs":"","as":0,"oo":0,"e30":0,"lc":"","cc":7,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":[]},{"id":"001PP00000JqsPcYAJ","n":"Federal Wildland Fire","ind":"Federal","emp":69419,"st":"Idaho","ci":"Boise","w":"http://doi.gov","ts":["Databricks_2025","Snowflake_2025"],"is":66.0,"bs":"Consideration","as":0,"oo":0,"e30":0,"lc":"","cc":0,"mq":0,"ss":"","ds":"","dt":null,"dae":"Ashleigh Cole","ch":false,"t":3,"j":["6sense: 66, Consideration","Stack: Databricks_2025,Snowflake_2025"]},{"id":"001PP00000JsjlDYAR","n":"UI Expert Witness Group","ind":"Research & Development","emp":2510,"st":"Washington","ci":"Shoreline","w":"http://ui.expert","ts":[],"is":60.0,"bs":"Consideration","as":0,"oo":0,"e30":45,"lc":"","cc":2,"mq":0,"ss":"","ds":"","dt":6.0,"dae":"","ch":false,"t":3,"j":["6sense: 60, Consideration","Eng 30d: 45m","Data team ~6"]},{"id":"001PP00000JtpGjYAJ","n":"U.S. Department of Defense","ind":"Federal","emp":480,"st":"Hawaii","ci":"Lahaina","w":"http://www.dvidshub.net","ts":[],"is":0.0,"bs":"Target","as":0,"oo":0,"e30":0,"lc":"Prospect","cc":0,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":[]},{"id":"001PP00000JvorbYAB","n":"State of Idaho","ind":"State","emp":35000,"st":"Idaho","ci":"Boise","w":"http://www.idaho.gov","ts":["Snowflake_2025"],"is":0.0,"bs":"Target","as":0,"oo":0,"e30":0,"lc":"Prospect","cc":6,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":["Stack: Snowflake_2025"]},{"id":"001PP00000K6K5ZYAV","n":"OHSU Foundation","ind":"Colleges & Universities","emp":29,"st":"Oregon","ci":"Portland","w":"http://ohsufoundation.org","ts":[],"is":null,"bs":"","as":0,"oo":0,"e30":0,"lc":"","cc":1,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":[]},{"id":"001PP00000K7WvjYAF","n":"Visit Washington DC","ind":"Real Estate","emp":187,"st":"District of Columbia","ci":"Washington","w":"washington.org","ts":[],"is":51.0,"bs":"Consideration","as":0,"oo":0,"e30":0,"lc":"Prospect","cc":0,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":["6sense: 51, Consideration"]},{"id":"001PP00000KA6lOYAT","n":"Dept. of Ecology","ind":"State","emp":1600,"st":"Washington","ci":"Lacey","w":"http://ecology.wa.gov","ts":[],"is":53.0,"bs":"Consideration","as":0,"oo":0,"e30":1,"lc":"","cc":1,"mq":0,"ss":"","ds":"","dt":3.0,"dae":"","ch":false,"t":3,"j":["6sense: 53, Consideration","Eng 30d: 1m","Data team ~3"]},{"id":"001PP00000KKNbLYAX","n":"Seattle.gov","ind":"Local","emp":10000,"st":"Washington","ci":"Seattle","w":"www.seattle.gov","ts":[],"is":66.0,"bs":"Consideration","as":0,"oo":0,"e30":3,"lc":"","cc":11,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":["6sense: 66, Consideration","Eng 30d: 3m"]},{"id":"001PP00000aMM6pYAG","n":"PeaceHealth","ind":"Medical & Surgical Hospitals","emp":17305,"st":"Washington","ci":"Vancouver","w":"www.peacehealth.org","ts":[],"is":53.0,"bs":"Consideration","as":0,"oo":0,"e30":0,"lc":"","cc":12,"mq":0,"ss":"","ds":"","dt":null,"dae":"","ch":false,"t":3,"j":["6sense: 53, Consideration"]}];
+
+const FC = {"Albertsons":[{"name":"Danielle Crop","title":"SVP & Chief Data Officer","email":"danielle.crop@albertsons.com","rank":1},{"name":"Harinder Singh","title":"VP Data Product Management & Gen AI","email":"harinder.singh@albertsons.com","rank":2},{"name":"Subramanian Iyer","title":"Group Vice President, Data Science","email":"subramanian.iyer@albertsons.com","rank":3},{"name":"Bill Bain","title":"Vice President of Data Science","email":"bill.bain@albertsons.com","rank":4},{"name":"Sean Montgomery","title":"Head of Data Operations & Enterprise Data Management","email":"sean.montgomery@albertsons.com","rank":5}],"Amazon":[{"name":"Contact","title":"See Amazon entities","email":"","rank":1}],"Nike":[{"name":"Alan John","title":"Global Vice President, Chief Data & AI Officer","email":"alan_john@nike.com","rank":1},{"name":"Keith Morrison","title":"VP of Data","email":"keith.morrison@nike.com","rank":2},{"name":"Alex He","title":"Chief Data Officer, VP Insights & Data Analytics","email":"alex@nike.com","rank":3},{"name":"Mark Devine","title":"Senior Director, Enterprise Data and AI","email":"mark.devine@nike.com","rank":4},{"name":"Mark Molau","title":"Sr. Director of Engineering, Data and AI","email":"mark.molau@nike.com","rank":5}],"Microsoft":[],"Expedia Group":[{"name":"Shiyi Pickrell","title":"SVP Data and AI","email":"spickrell@expediagroup.com","rank":1},{"name":"Rajesh Naidu","title":"SVP, Chief Architect, Head of Data Mgmt & Governance","email":"rnaidu@expediagroup.com","rank":2},{"name":"Dan Friedman","title":"Vice President, Data Science","email":"dfriedman@expediagroup.com","rank":3},{"name":"Sean Yu","title":"Vice President, Data Science","email":"s.yu@expediagroup.com","rank":4},{"name":"Shao Xie","title":"Vice President, Data Platform and Products","email":"shxie@expediagroup.com","rank":5}],"T-Mobile":[{"name":"Ronke Ekwensi","title":"Vice President & Chief Data Officer","email":"ronke.ekwensi@t-mobile.com","rank":1},{"name":"Jeffrey Frantz","title":"Vice President, Data & AI","email":"jeffrey.frantz@t-mobile.com","rank":2},{"name":"John Blanchard","title":"Vice President of Data and AI","email":"john.blanchard@t-mobile.com","rank":3},{"name":"Nandan Thor","title":"VP of AI, Product & Engineering","email":"nandan.thor@t-mobile.com","rank":4},{"name":"Ellen Sulcs","title":"Sr. Director, Data Engineering and AI","email":"ellen.sulcs1@t-mobile.com","rank":5}],"Costco WholeSale Corporation":[{"name":"Torsten Lubach","title":"CTO","email":"tlubach@costco.com","rank":1},{"name":"Indy Cho","title":"AVP of Data Science and Analytics (AI)","email":"indycho@costco.com","rank":2},{"name":"Akshay Darbari","title":"Director, Data Science and Data Products","email":"adarbari@costco.com","rank":3},{"name":"Melody Lucero","title":"Director - Enterprise Data Management","email":"mlucero@costco.com","rank":4},{"name":"Ben Kaiser","title":"Director - Data Platforms and EDI","email":"bkaiser@costco.com","rank":5}],"lululemon":[{"name":"Ranju Das","title":"Chief AI & Technology Officer","email":"ranjudas@lululemon.com","rank":1},{"name":"Rahul Bhotika","title":"SVP, Data and AI","email":"rbhotika@lululemon.com","rank":2},{"name":"Vikram Menda","title":"Senior Director Technology, Data & AI","email":"vmenda@lululemon.com","rank":3},{"name":"Vasudev Sharma","title":"Senior Director, Technology Data, Analytics & Insights, ML Ops","email":"vasudevsharma@lululemon.com","rank":4},{"name":"Sowmya Sankar","title":"Technology Director, Data Analytics","email":"sowmyasankar@lululemon.com","rank":5}],"Slalom":[{"name":"Martin Young","title":"Global Managing Director, Data & AI","email":"martyy@slalom.com","rank":1},{"name":"Carrick Carpenter","title":"Managing Director, Build Data Engineering, AI & ML","email":"carrick.carpenter@slalom.com","rank":2},{"name":"Barry Scharfman","title":"Head of Data Science & AI/ML Practice","email":"barry.scharfman@slalom.com","rank":3},{"name":"Jeffrey Rummel","title":"Sr. Director, Global Partner Development, Data & AI","email":"jeff.rummel@slalom.com","rank":4},{"name":"Sabrina Chamberlain","title":"Senior Director, Head of Data Architecture & Engineering","email":"sabrina.chamberlain@slalom.com","rank":5}],"Starbucks Corporation":[{"name":"Bhagyesh Phanse","title":"SVP, Chief Data & Analytics Officer","email":"bphanse@starbucks.com","rank":1},{"name":"Das Dasgupta","title":"Chief Data & Analytics Officer","email":"ddasgupta@starbucks.com","rank":2},{"name":"Emily Miner","title":"Vice President, Data Science","email":"eminer@starbucks.com","rank":3},{"name":"Eric Stuck","title":"Vice President of Data Governance and Strategy","email":"estuck@starbucks.com","rank":4},{"name":"Meenakshi Agarwal","title":"Director, Data, ML & Generative AI Platforms","email":"magarwal@starbucks.com","rank":5}],"Edward Jones":[{"name":"Kevin Fitzpatrick","title":"Head of Data","email":"kevin.fitzpatrick@edwardjones.com","rank":1},{"name":"Lauren Nosal","title":"Director, Data Governance, Analytics and AI","email":"lauren.nosal@edwardjones.com","rank":2},{"name":"Paul Woods","title":"Director - Data, AI and Analytics Technology Delivery","email":"paul.woods@edwardjones.com","rank":3},{"name":"Lindsay Drake","title":"Director, Analytics & Data Science","email":"lindsay.drake@edwardjones.com","rank":4},{"name":"Dean Farmer","title":"Director - Responsible AI","email":"dean.farmer@edwardjones.com","rank":5}],"NORDSTROM":[{"name":"Jason Morris","title":"Chief Technology Officer","email":"jason.morris@nordstrom.com","rank":1},{"name":"Kevin Evans","title":"SVP, Platform, Data & Infrastructure","email":"kevin.evans@nordstrom.com","rank":2},{"name":"Jason Keinath","title":"VP, Data Platform and AI","email":"jason.keinath@nordstrom.com","rank":3},{"name":"Musa Katuli","title":"Vice President of Data Science & Analytics","email":"musa.katuli@nordstrom.com","rank":4},{"name":"I-Chiang Chen","title":"Senior Director, Search, Data Science & Content","email":"i-chiang.chen@nordstrom.com","rank":5}],"KinderCare Learning Centers":[{"name":"Danny Rambhatla","title":"Director of Data Engineering","email":"danny.rambhatla@kindercare.com","rank":1},{"name":"Matt Willis","title":"Sr. Director of Enterprise Architecture","email":"matt.willis@kindercare.com","rank":2},{"name":"Morris Morgan","title":"Director Enterprise Architecture","email":"morgan.morris@kindercare.com","rank":3},{"name":"Ryan Storfa","title":"Director of Business Analytics - Finance","email":"rstorfa@kindercare.com","rank":4},{"name":"Justin Ostrander","title":"Director of Financial Planning and Analysis","email":"jostrander@kindercare.com","rank":5}],"LinkedIn":[{"name":"Ya Xu","title":"VP of Engineering, Head of Data and AI","email":"yaxu@linkedin.com","rank":1},{"name":"Deepak Agarwal","title":"Chief AI Officer","email":"dagarwal@linkedin.com","rank":2},{"name":"Animesh Singh","title":"Executive Director, AI Platform and Infrastructure","email":"animesh@linkedin.com","rank":3},{"name":"Eynat Rafalin","title":"Senior Director of Data Science","email":"erafalin@linkedin.com","rank":4},{"name":"Sofus Macskassy","title":"Head of Data Science Research and Productivity","email":"sm@linkedin.com","rank":5}],"Micron Technology":[{"name":"Harsha Gopianandan","title":"Senior Director, AI/Data Science, Technology and Products","email":"gopianandan.harsha@micron.com","rank":1},{"name":"Adeline Tay","title":"Senior Director, Manufacturing & AI","email":"adelinetay@micron.com","rank":2},{"name":"Binoj Kumar","title":"Director, Enterprise Data Management","email":"binojkumar@micron.com","rank":3},{"name":"Travis Schow","title":"Director, Enterprise Master Data Management and Governance","email":"tschow@micron.com","rank":4},{"name":"Joeseph Coble","title":"Director of Machine Learning & Data Engineering","email":"jcoble@micron.com","rank":5}],"Daimler Trucks North America":[{"name":"Thilo Gr\u00f6sch","title":"Chief Information Officer","email":"thilo.groesch@daimlertruck.com","rank":1}],"University of Washington":[{"name":"Bill Schaefer","title":"Director, UW-IT Data & Applications","email":"wfs@uw.edu","rank":1},{"name":"Maryam Fazel","title":"Director of Inst. for Foundations of Data Science","email":"mfazel@uw.edu","rank":2},{"name":"Geoff Westling","title":"Director, Systems Engineering & Cloud Computing","email":"westling@washington.edu","rank":3}],"Providence Health & Services":[{"name":"Mark Premo","title":"Chief Data Officer","email":"mark.premo@providence.org","rank":1},{"name":"Keith Leonin","title":"Executive Director, Data Governance and Data Quality","email":"keith.leonin@providence.org","rank":2},{"name":"John Gallardo","title":"Executive Director of Data Engineering","email":"john.gallardo@providence.org","rank":3},{"name":"Lindsay Mico","title":"Head of Data Science","email":"lindsay.mico@providence.org","rank":4},{"name":"Michael Ascarate","title":"Executive Director of Data Insights","email":"michael.ascarate@providence.org","rank":5}],"PACCAR":[{"name":"Vikas Jain","title":"Chief Data & Digital Officer","email":"vikas.jain@paccar.com","rank":1},{"name":"Dallas Thornton","title":"AI Director, Digital","email":"dallas.thornton@paccar.com","rank":2},{"name":"Brisa Ponce","title":"Director of Data Analytics","email":"brisa.ponce@paccar.com","rank":3},{"name":"Randall Hoberecht","title":"Director of Analytics","email":"randy.hoberecht@paccar.com","rank":4},{"name":"John Rich","title":"Chief Technology Officer","email":"john.rich@paccar.com","rank":5}],"Coupang":[{"name":"Seshu Adunuthula","title":"Head of AI + Data Platform","email":"sadunuthula@coupang.com","rank":1},{"name":"Mike Moon","title":"Senior Director of Data Platform Engineering","email":"moon@coupang.com","rank":2},{"name":"Puneet Garg","title":"Senior Director, Data Science & Machine Learning","email":"pugarg@coupang.com","rank":3},{"name":"Hrishikesh Ganu","title":"Senior Director, Machine Learning & DS","email":"hris@aboutcoupang.com","rank":4},{"name":"Paul Stroup","title":"Sr Director of Engineering and Data Science","email":"pastroup@coupang.com","rank":5}],"Blue Origin":[{"name":"Clark Stevens","title":"Director, Enterprise Data Management & Analytics","email":"cstevens@blueorigin.com","rank":1},{"name":"Daniel Kinney","title":"Director, Enterprise Data Management and Analytics","email":"dkinney@blueorigin.com","rank":2},{"name":"Shaan Gautam","title":"Director Data Science and Software Engineering","email":"sgautam@blueorigin.com","rank":3},{"name":"Kyle Peterson","title":"Director, Engineering Data Systems & Architecture (New Glenn)","email":"kpeterson@blueorigin.com","rank":4},{"name":"Nityansh Seth","title":"Director Analytics and Science","email":"nseth@blueorigin.com","rank":5}],"ON Semiconductor":[{"name":"Andrew Kosko","title":"Director, IT Automation & Artificial Intelligence","email":"andrew.kosko@onsemi.com","rank":1},{"name":"Yomesh Sharma","title":"Sr. Director of AI & Automation","email":"yomesh.sharma@onsemi.com","rank":2},{"name":"Malcolm Anderson","title":"Director, Product Data Management","email":"malcolm.anderson@onsemi.com","rank":3},{"name":"Kalyan Sudhakar","title":"Senior IT Director, Oracle Cloud Transformation","email":"kalyan.sudhakar@onsemi.com","rank":4},{"name":"Ying Guo","title":"Director Business Operations and Analytics","email":"ying.guo@onsemi.com","rank":5}],"Avanade":[{"name":"Manprit Singh","title":"CTO Data, AI Offerings","email":"manprit.singh@avanade.com","rank":1},{"name":"Jeromey Farmer","title":"AI, Head of Data (Americas)","email":"jeromey.farmer@avanade.com","rank":2},{"name":"Regis Ravant","title":"Managing Director, Data AI & IoT Lead","email":"regis.ravant@avanade.com","rank":3},{"name":"Frank Dodrill","title":"Director, Data & AI (West, US)","email":"frank.dodrill@avanade.com","rank":4},{"name":"Kiana Toufighi","title":"Director of Data & AI, GenAI Solutioning Lead","email":"kiana.toufighi@avanade.com","rank":5}],"Alaska Airlines":[{"name":"Sai Ravuru","title":"Managing Director of AI and Data Transformation","email":"sai.ravuru@alaskaair.com","rank":1},{"name":"Dan Audette","title":"Managing Director, Analytics and Strategy","email":"dan.audette@alaskaair.com","rank":2},{"name":"Lana DeMaria","title":"Head of Data Governance and Privacy","email":"lana.demaria@alaskaairlines.com","rank":3},{"name":"Kevin Tang","title":"Director of Data Science","email":"kevin.tang@alaskaair.com","rank":4},{"name":"Caroline Hu","title":"Director, Data Services","email":"caroline.hu@alaskaair.com","rank":5}],"REI":[{"name":"Dan Shull","title":"Chief Technology Officer","email":"dshull@rei.com","rank":1},{"name":"Christopher Barrett","title":"Director Customer Insights & Data Science","email":"cbarrett@rei.com","rank":2},{"name":"Kevin Mori","title":"Director of Digital Insights and Analytics","email":"kmori@rei.com","rank":3},{"name":"Mike Knape","title":"Director, Customer Analytics & Planning","email":"mknape@rei.com","rank":4},{"name":"Max Green","title":"Director of Performance Marketing and Analytics","email":"mgreen@rei.com","rank":5}],"Fortive":[{"name":"Jason Beyer","title":"Chief Data Officer","email":"jason.beyer@fortive.com","rank":1},{"name":"Harshil Goradia","title":"Senior Director of Data Science, AI and Engineering","email":"harshil.goradia@fortive.com","rank":2},{"name":"Tushar Mathur","title":"Senior Director, AI - Growth & Innovation","email":"tushar.mathur@fortive.com","rank":3},{"name":"eshwari mulpuru","title":"Senior Director AI/ML Commercial Growth","email":"eshwari@fortive.com","rank":4},{"name":"Steven Piperno","title":"Director, People Analytics & Data Governance","email":"steven.piperno@fortive.com","rank":5}],"Lithia Motors":[{"name":"Cathy Qiu","title":"Director, Data Science & Risk Analytics","email":"jieqiu@lithia.com","rank":1},{"name":"Kevin Jarrard","title":"Senior Director, Cloud Platform & Infrastructure","email":"kjarrard@lithia.com","rank":2}],"Dutch Bros":[{"name":"Anitha Jagadeesh","title":"Senior Director, Enterprise Data, Analytics & Governance","email":"anitha.jagadeesh@dutchbros.com","rank":1},{"name":"Venki Krishnababu","title":"Chief Technology and Information Officer","email":"venki.krishnababu@dutchbros.com","rank":2},{"name":"Jen Travis","title":"Senior Director of Enterprise BI","email":"jen.travis@dutchbros.com","rank":3},{"name":"Jessica Sattler","title":"Senior Director of Consumer Insights & Marketing Analytics","email":"jessica.sattler@dutchbros.com","rank":4},{"name":"Paul Dobbertin","title":"Director of Analytics & Insights","email":"paul.dobbertin@dutchbros.com","rank":5}],"Savers":[{"name":"Erfan Bhojawala","title":"Snr Director Engineering","email":"ebhojawala@savers.com","rank":1},{"name":"Jed Woodward","title":"Director of IT Infrastructure","email":"jwoodward@savers.com","rank":2}],"PeaceHealth":[{"name":"Susan Easton","title":"Director, Analytic Services & Technologies","email":"seaston@peacehealth.org","rank":1},{"name":"Alli Houtsma","title":"Program Director, Value Based Care Analytics","email":"ahoutsma@peacehealth.org","rank":2},{"name":"Amy Ballard","title":"System Director, Quality Analytics","email":"aballard1@peacehealth.org","rank":3}],"Expeditors":[{"name":"Chris Scott","title":"Director, Enterprise Data & Analytics","email":"chris.scott@expeditors.com","rank":1},{"name":"Jeff Hascall","title":"Director, Enterprise Data Governance","email":"jeff.hascall@expeditors.com","rank":2},{"name":"James Taylor","title":"Director, Information Services - South Asia","email":"james.taylor@expeditors.com","rank":3}],"Mondel\u0113z International":[],"Precision Castparts":[{"name":"Ashley B.","title":"Chief Data and Analytics Officer","email":"abrinegar@precastcorp.com","rank":1},{"name":"Kaitlyn McNaughton","title":"Director of Engineering","email":"kaitlyn.mcnaughton@precastcorp.com","rank":2}]}
+;
+const RES = {
+  "videos": {
+    "agents_data_eng": {"title": "Agents in Monte Carlo for Data Engineers", "url": "https://www.loom.com/share/183a225fe2674c0f87ffcefc6a0d2c4b", "len": "9 min"},
+    "ai_governance": {"title": "AI Assisted Demo for Data Governance", "url": "https://www.loom.com/share/f74168a490c746cd971fb79e47a438c5", "len": "11 min"},
+    "snowflake_setup": {"title": "Setting Up Snowflake Integration", "url": "https://www.loom.com/share/03fdba4a063a4cdaa89600c8bdc921cd", "len": "17 min"},
+    "domains": {"title": "Domains Overview", "url": "https://www.loom.com/share/41822717f7114fe1983bedb6f9c0e889", "len": "8 min"},
+    "resolve_incidents": {"title": "Resolve Data Incidents", "url": "https://www.loom.com/share/7ad66c561b5b4c71b67d6197bf819cca", "len": "4.5 min"},
+    "agents_overview": {"title": "Observability Agents Overview", "url": "https://www.loom.com/share/3ab836e32871426ca8242feefa86596a", "len": "10 min"},
+    "foundations_lineage": {"title": "Data Observability Foundations & Lineage", "url": "https://www.loom.com/share/97bd2f642f274393aca152f5c7004727", "len": "8 min"},
+    "atlan_together": {"title": "Atlan + Monte Carlo Better Together", "url": "https://www.loom.com/share/998d472293a542afa21cda33fc304b56", "len": "4 min"},
+    "monitoring_strategies": {"title": "Monitoring Strategies", "url": "https://www.loom.com/share/41b05a2bd0b444d0ae458e33a88aae16", "len": "7 min"},
+    "ops_agent": {"title": "Operations Agent Overview", "url": "https://www.youtube.com/watch?v=ABvKsVJlJvQ", "len": "5 min"},
+    "monitor_deep_dive": {"title": "Monitor Deep Dive & Best Practices", "url": "https://www.loom.com/share/43fc6390bc2c48728d046d9a6e226034", "len": "21 min"},
+    "agent_observability": {"title": "Agent Observability Demo", "url": "https://20172935.fs1.hubspotusercontent-na1.net/hubfs/20172935/Agent_Observabili", "len": "3 min"},
+    "agent_obs_webinar": {"title": "Agent Observability Deep Dive", "url": "https://info.montecarlodata.com/resources/agent-observability-from-pilot-to-prod", "len": "21 min"},
+    "troubleshooting_agent": {"title": "Troubleshooting Agent", "url": "https://www.loom.com/share/1caa7cc3bc1b4ec89bc7ff0aedd5a147", "len": "3 min"},
+    "mcp_server": {"title": "Monte Carlo MCP Server", "url": "https://vimeo.com/1123317419", "len": "3 min"},
+    "full_demo": {"title": "Full Demo of Monte Carlo", "url": "https://20172935.fs1.hubspotusercontent-na1.net/hubfs/20172935/Videos%20-%20Live", "len": "20 min"},
+    "monitors_as_code": {"title": "Monitors as Code", "url": "https://www.loom.com/share/70eb8e21a0d34519a0ddc4620928b12c", "len": "23 min"},
+    "dbt_github": {"title": "Github/dbt Integration", "url": "https://www.loom.com/share/56923622945a4ef681301b0830e79efc", "len": "4 min"},
+    "triage_resolution": {"title": "Triage & Resolution: Data Engineer's Guide", "url": "https://www.loom.com/share/625a7f42afdf49b1a89c49a5f875d545", "len": "4 min"},
+    "data_trust_health": {"title": "Measuring Data Trust and Health", "url": "https://www.loom.com/share/6134d2b239894744b0f94af90f935ab5", "len": "5 min"},
+    "building_monitors": {"title": "Building Monitors 101", "url": "https://www.loom.com/share/828319ec8f1c47aeab485d5e006bec77", "len": "5 min"},
+    "ai_scalable_monitoring": {"title": "AI for Scalable Monitoring", "url": "https://www.loom.com/share/01cd4e9a9b364257a954fd5dc83555e9", "len": "5 min"},
+    "data_quality_dashboard": {"title": "Building Trust & Bird's Eye View of Data Quality", "url": "https://www.loom.com/share/c2102c0571124e06a78afe050b5837a1", "len": "5 min"},
+    "query_perf": {"title": "Optimizing Workloads with Query Performance Monitoring", "url": "https://www.loom.com/share/cd8fdb483d054ec1880ceac01ce34c73", "len": "5 min"},
+    "schema_changes": {"title": "Communicating Upcoming Schema Changes", "url": "https://www.loom.com/share/c96165abc98d4115bb7930eda0ee16d7", "len": "3 min"},
+    "circuit_breaker": {"title": "Circuit Breaker Example", "url": "https://share.vidyard.com/watch/1571M32Q5bVRX9SxnZqWeK", "len": "5 min"},
+    "intro_value": {"title": "Introduction to Monte Carlo & Its Value", "url": "https://20172935.fs1.hubspotusercontent-na1.net/hubfs/20172935/Introduction%20To", "len": "7 min"},
+    "alation_integration": {"title": "Integrating Monte Carlo with Alation", "url": "https://view.highspot.com/viewer/857f826c34353fb6ac6f3948cf68bea6", "len": "2 min"},
+    "databricks_ops_agent": {"title": "Operations Agent on Databricks", "url": "https://www.loom.com/share/74537c016b374423a35b2f97cbe5760c", "len": "5 min"},
+    "data_products": {"title": "Coverage & Health Tracking of Data Products", "url": "https://www.loom.com/share/5971d05f607b49d0b7e3acca6d2c585f", "len": "5 min"}
+  },
+  "blogs": {
+    "what_is_do": "https://www.montecarlodata.com/blog-what-is-data-observability/",
+    "use_cases": "https://www.montecarlodata.com/blog-data-observability-use-cases/",
+    "tools_rfp": "https://www.montecarlodata.com/blog-best-data-observability-tools-with-rfp/",
+    "vs_monitoring": "https://www.montecarlodata.com/blog-data-observability-vs-monitoring/",
+    "architecture": "https://www.montecarlodata.com/blog-data-observability-architecture-and-optimizing-your-coverage/",
+    "implement": "https://www.montecarlodata.com/blog-how-to-implement-data-observability/",
+    "open_source": "https://www.montecarlodata.com/blog-open-source-data-observability",
+    "build_program": "https://www.montecarlodata.com/blog-building-data-ai-observability-program/",
+    "category_leader": "https://montecarlodata.com/blog-data-observability-category-leader"
+  }
+}
+;
+const RES_STR = `RESOURCE LIBRARY — attach the MOST relevant link to each bullet:
+VIDEOS:\n${Object.values(RES.videos).map(v => `- "${v.title}" (${v.len}): ${v.url}`).join("\n")}
+BLOGS:\n${Object.entries(RES.blogs).map(([k,v]) => `- ${k}: ${v}`).join("\n")}`;
+
+async function askClaude(prompt, { mcp = false, web = false } = {}) {
+  const body = { model: "claude-sonnet-4-20250514", max_tokens: 4096, system: SYS, messages: [{ role: "user", content: prompt }] };
+  if (mcp) body.mcp_servers = MCP_SERVERS;
+  if (web) body.tools = [{ type: "web_search_20250305", name: "web_search" }];
+  const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(`API ${r.status}`);
+  const d = await r.json();
+  return { texts: d.content?.filter(b => b.type === "text").map(b => b.text) || [], mcpR: d.content?.filter(b => b.type === "mcp_tool_result").map(b => { try { return b.content?.[0]?.text || ""; } catch { return ""; } }) || [] };
+}
+function parseJ(parts) { for (const t of parts) { try { return JSON.parse(t.replace(/```json|```/g, "").trim()); } catch {} } return null; }
+function fmt(n) { return n >= 1e6 ? (n/1e6).toFixed(1)+"M" : n >= 1e3 ? Math.round(n/1e3)+"K" : n?.toString() || "—"; }
+
+function getPriorities(a) {
+  const p = [];
+  const stack = (a.ts || []).join(" ").toLowerCase();
+  const ind = (a.ind || "").toLowerCase();
+  const ik = (a.ik || "").toLowerCase();
+  if (stack.includes("databricks") && stack.includes("snowflake")) p.push("Unifying data across Snowflake and Databricks environments");
+  else if (stack.includes("databricks")) p.push("Scaling AI/ML workloads on Databricks");
+  else if (stack.includes("snowflake")) p.push("Maintaining data reliability across Snowflake pipelines");
+  if (stack.includes("dbt")) p.push("Ensuring transformation quality across dbt models");
+  if (stack.includes("alation") || stack.includes("atlan")) p.push("Data governance and catalog-driven quality scoring");
+  if (ik.includes("data quality")) p.push("Improving data quality at scale without manual rule writing");
+  if (ik.includes("informatica")) p.push("Modernizing legacy data quality tooling");
+  if (ind.includes("retail") || ind.includes("grocery") || ind.includes("department")) p.push("Trusted data for demand forecasting, inventory, and customer analytics");
+  if (ind.includes("financial") || ind.includes("banking") || ind.includes("investment")) p.push("Regulatory-grade data accuracy for financial reporting");
+  if (ind.includes("hospital") || ind.includes("health")) p.push("HIPAA-compliant data reliability for clinical and operational analytics");
+  if (ind.includes("travel") || ind.includes("airline")) p.push("Real-time data reliability for pricing, operations, and customer experience");
+  if (ind.includes("food") || ind.includes("beverage") || ind.includes("restaurant")) p.push("Data-driven supply chain and customer personalization");
+  if (ind.includes("motor") || ind.includes("auto")) p.push("Connected vehicle data and manufacturing analytics reliability");
+  if (ind.includes("telecom") || ind.includes("wireless")) p.push("Network and customer data reliability at massive scale");
+  if (ind.includes("consulting")) p.push("Delivering data observability as a service to enterprise clients");
+  if (ind.includes("aerospace") || ind.includes("defense")) p.push("Secure, compliant data infrastructure for mission-critical programs");
+  if (ind.includes("electronics") || ind.includes("semiconductor")) p.push("Manufacturing yield optimization through trusted AI/ML data");
+  if (ind.includes("software") || ind.includes("social")) p.push("Scaling data infrastructure to support product analytics and AI features");
+  if (a.lc && a.lc.includes("Stage")) p.push("Evaluating end-to-end data observability for production pipelines");
+  if (a.dt && a.dt > 100) p.push("Scaling data team productivity across " + Math.round(a.dt) + " data practitioners");
+  return [...new Set(p)].slice(0, 3);
+}
+
+// Detail row for account expansion
+function Detail({ label, val }) {
+  if (!val) return null;
+  return <div style={{ display: "flex", gap: 8, fontSize: 12, lineHeight: 1.5 }}><span style={{ color: MC.textMuted, minWidth: 100, flexShrink: 0 }}>{label}</span><span style={{ color: MC.text }}>{val}</span></div>;
+}
+
+// Render email body with clickable links
+function EmailBody({ body }) {
+  const lines = body?.split("\n").filter(l => l.trim()) || [];
+  return <div>{lines.map((line, i) => {
+    const isBullet = /^[•\-\*]/.test(line.trim());
+    const parts = []; const re = /\[([^\]]+)\]\(([^)]+)\)/g; let m, idx = 0;
+    while ((m = re.exec(line)) !== null) {
+      if (m.index > idx) parts.push(<span key={`t${i}${idx}`}>{line.slice(idx, m.index)}</span>);
+      parts.push(<a key={`l${i}${m.index}`} href={m[2]} target="_blank" rel="noopener" style={{ color: MC.green, textDecoration: "none", borderBottom: `1px solid ${MC.greenDim}` }}>{m[1]}</a>);
+      idx = m.index + m[0].length;
+    }
+    if (idx < line.length) parts.push(<span key={`e${i}`}>{line.slice(idx)}</span>);
+    return <div key={i} style={{ marginBottom: isBullet ? 3 : 7, paddingLeft: isBullet ? 4 : 0, color: isBullet ? MC.textDim : MC.text, fontSize: 12, lineHeight: 1.6 }}>{parts.length ? parts : line}</div>;
+  })}</div>;
+}
+
+// Contact row with inline email — extracted as component so hooks work properly
+function ContactItem({ c, email, isGenning, ds, onDraft, onRegen }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copy = () => { if (!email) return; navigator.clipboard?.writeText(`Subject: ${email.subject}\n\n${email.body.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')}`); setCopied(true); setTimeout(() => setCopied(false), 1500); };
+
+  // Auto-expand when email arrives
+  useEffect(() => { if (email && !open) setOpen(true); }, [email]);
+
+  return (
+    <div style={{ background: MC.bg, border: `1px solid ${MC.border}`, borderRadius: 10, marginBottom: 6, overflow: "hidden" }}>
+      <div onClick={() => setOpen(!open)} style={{ padding: "11px 14px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontWeight: 600, fontSize: 13, color: MC.text }}>{c.name}</span>
+            {isGenning && <span style={{ fontSize: 9, color: MC.green, fontFamily: "monospace" }}>writing...</span>}
+            {email && !isGenning && <span style={{ width: 6, height: 6, borderRadius: "50%", background: MC.green, display: "inline-block" }} />}
+          </div>
+          <div style={{ fontSize: 11, color: MC.textMuted, marginTop: 1 }}>{c.title}</div>
+          <div style={{ fontSize: 11, color: MC.textFaint, marginTop: 1 }}>{c.email}</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 16 16" style={{ transform: open ? "rotate(180deg)" : "rotate(0)", transition: "transform .2s", color: MC.textFaint }}><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none"/></svg>
+      </div>
+      {open && email && (
+        <div style={{ padding: "0 14px 12px", borderTop: `1px solid ${MC.border}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, marginBottom: 6 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: MC.green }}>{email.subject}</div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={(e) => { e.stopPropagation(); onDraft(c, email); }} disabled={ds==="sending"||ds==="sent"} style={{ fontSize: 10, padding: "4px 10px", background: ds==="sent" ? MC.greenBg : "transparent", color: ds==="sent" ? MC.green : MC.amber, border: `1px solid ${ds==="sent" ? MC.greenDim : MC.amberDim}`, borderRadius: 6, cursor: ds==="sent"?"default":"pointer", fontWeight: 500 }}>{ds==="sent" ? "✓ Drafted" : ds==="sending" ? "..." : "Gmail Draft"}</button>
+              <button onClick={(e) => { e.stopPropagation(); copy(); }} style={{ fontSize: 10, padding: "4px 10px", background: copied ? MC.greenBg : "transparent", color: MC.green, border: `1px solid ${MC.greenDim}`, borderRadius: 6, cursor: "pointer", fontWeight: 500 }}>{copied ? "Copied!" : "Copy"}</button>
+              <button onClick={(e) => { e.stopPropagation(); onRegen(); }} style={{ fontSize: 10, padding: "4px 8px", background: "transparent", color: MC.textMuted, border: `1px solid ${MC.border}`, borderRadius: 6, cursor: "pointer" }}>↻</button>
+            </div>
+          </div>
+          <div style={{ padding: "10px 12px", background: MC.bgCard, borderRadius: 8, border: `1px solid ${MC.border}` }}>
+            <EmailBody body={email.body} />
+          </div>
+        </div>
+      )}
+      {open && !email && isGenning && (
+        <div style={{ padding: "12px 14px", borderTop: `1px solid ${MC.border}`, textAlign: "center", fontSize: 11, color: MC.textFaint }}>Researching & writing...</div>
+      )}
+    </div>
+  );
+}
+
+export default function App() {
+  const [accounts] = useState(ACCTS);
+  const [filter, setFilter] = useState(null);
+  const [search, setSearch] = useState("");
+  const [expandedAcct, setExpandedAcct] = useState(null); // expanded in list
+  const [contactsAcct, setContactsAcct] = useState(null); // contacts panel open for this acct
+  const [contacts, setContacts] = useState([]);
+  const [emailMap, setEmailMap] = useState({});
+  const [loadingEmails, setLoadingEmails] = useState({});
+  const [draftStatus, setDraftStatus] = useState({});
+  const [loading, setLoading] = useState("");
+  const [logs, setLogs] = useState([]);
+  const [companyPriorities] = useState(PRIORITIES);
+  const [loadingPriorities] = useState({});
+  const [prioritiesLoaded] = useState(true);
+  const genRef = useRef(null);
+  const prioritiesRef = useRef(true); // already loaded
+
+  const log = useCallback(m => setLogs(p => [...p, m].slice(-20)), []);
+
+  // No-op — priorities are hardcoded
+  const fetchPriorities = useCallback(() => {}, []);
+
+  // Generate ALL emails for an account in ONE API call — NO web search for speed
+  const genAllEmails = useCallback(async (contactList, acct) => {
+    const valid = contactList.filter(c => c.email?.includes("@"));
+    if (!valid.length) return;
+    const loadMap = {}; valid.forEach(c => { loadMap[c.email] = true; }); setLoadingEmails(loadMap);
+    log(`Generating ${valid.length} emails...`);
+
+    const contactBlock = valid.map((c, i) => `${i+1}. ${c.name} | ${c.title} | ${c.email}`).join("\n");
+    const dtStr = acct.dt ? `${Math.round(acct.dt)} person data team` : "";
+    const prompt = `You are ghostwriting cold outreach emails from Connor Miller, an SDR at Monte Carlo Data, to data and AI leaders at ${acct.n}.
+
+ABOUT ${acct.n.toUpperCase()}:
+${acct.ind} company, ${acct.emp.toLocaleString()} employees, based in ${acct.ci}${acct.st ? ` ${acct.st}` : ""}
+Tech stack: ${acct.ts?.join(", ") || "not confirmed"}
+${dtStr ? `Data org: ${dtStr}` : ""}
+${acct.lc && acct.lc.includes("Stage") ? `Current relationship: active deal (${acct.lc})` : "No current deal — cold outreach"}
+${acct.cb ? `Partner overlap: ${acct.cb}` : ""}
+${acct.ik ? `Showing intent around: ${acct.ik}` : ""}
+${companyPriorities[acct.n] ? `\nKNOWN COMPANY PRIORITIES (from their earnings/press releases — use these to personalize):\n${companyPriorities[acct.n].map((p,i) => `${i+1}. ${p}`).join("\n")}` : ""}
+${acct.ik ? `Showing intent around: ${acct.ik}` : ""}
+
+CONTACTS TO EMAIL:
+${contactBlock}
+
+WRITING INSTRUCTIONS:
+Write like Connor — a friendly, sharp sales rep who did his homework. NOT like a marketing bot. Read each email out loud before finalizing. If it sounds like it came from a template or an AI, rewrite it.
+
+Each email structure:
+- Line 1: A warm, specific opener about THEM. What are they likely focused on given their title at this company? Reference their role naturally. Start with their name: "Hi [Name],"
+- Line 2-3: Connect what they care about to a real challenge. Be specific to their industry and role. Talk about their world, not yours.
+- Then 3 short bullets showing how Monte Carlo fits into their picture. Each bullet should feel like a helpful nudge, not a feature dump. After each bullet, drop in ONE relevant link from the list below — something they'd actually want to click.
+- Close with a relaxed ask. "Would it be worth a quick chat?" or "Happy to share more if helpful" — something a normal person would say.
+
+STYLE RULES:
+- Write the way you'd text a work friend who's smart but busy
+- NO: "I noticed", "I came across", "I wanted to reach out", "I hope this finds you"  
+- NO: approximate symbol (~), exclamation marks, "leverage", "unlock", "empower", "cutting-edge", "game-changing", "impressive"
+- NO: starting any sentence with "As" ("As you scale..." "As your team...")
+- Subject lines should be conversational and about THEM — like something that would catch your eye in your inbox
+- Keep each email under 80 words total
+- Each bullet should be 6-10 words, natural language, not a feature name
+
+RESOURCE LINKS — pick the most relevant for each bullet:
+${Object.values(RES.videos).slice(0, 15).map(v => `"${v.title}": ${v.url}`).join("\n")}
+${Object.entries(RES.blogs).slice(0, 5).map(([k,v]) => `${k}: ${v}`).join("\n")}
+
+FORMAT each email body with actual newlines:
+Hi [Name],
+
+[opener about them]
+
+[their challenge/priority — 1-2 sentences]
+
+• [natural bullet] — [Link text](url)
+• [natural bullet] — [Link text](url)  
+• [natural bullet] — [Link text](url)
+
+[casual ask]
+
+Connor
+
+Return ONLY valid JSON:
+{"emails":[{"name":"...","title":"...","email":"...","account":"${acct.n}","subject":"...","body":"...","warm":false}]}`;
+
+    try {
+      const { texts } = await askClaude(prompt, { web: false });
+      const p = parseJ(texts);
+      if (p?.emails?.length) {
+        const newMap = {};
+        p.emails.forEach(e => { if (e.email) newMap[e.email] = e; });
+        valid.forEach(c => {
+          if (!newMap[c.email]) {
+            const byName = p.emails.find(e => e.name === c.name);
+            if (byName) newMap[c.email] = { ...byName, email: c.email };
+          }
+        });
+        setEmailMap(prev => ({ ...prev, ...newMap }));
+        log(`✓ ${Object.keys(newMap).length}/${valid.length} emails`);
+      } else {
+        log(`✗ Parse failed — retrying...`);
+        // Retry once without resources to reduce token load
+        const retry = await askClaude(prompt.split("RESOURCE LINKS")[0] + `\nReturn ONLY valid JSON:\n{"emails":[{"name":"...","title":"...","email":"...","account":"${acct.n}","subject":"...","body":"...","warm":false}]}`, { web: false });
+        const p2 = parseJ(retry.texts);
+        if (p2?.emails?.length) {
+          const newMap = {};
+          p2.emails.forEach(e => { if (e.email) newMap[e.email] = e; });
+          valid.forEach(c => { if (!newMap[c.email]) { const m = p2.emails.find(e => e.name === c.name); if (m) newMap[c.email] = { ...m, email: c.email }; } });
+          setEmailMap(prev => ({ ...prev, ...newMap }));
+          log(`✓ ${Object.keys(newMap).length}/${valid.length} emails (retry)`);
+        } else { log(`✗ Failed after retry`); }
+      }
+    } catch (e) { log(`✗ ${e.message?.slice(0,40)}`); }
+    const clearMap = {}; valid.forEach(c => { clearMap[c.email] = false; }); setLoadingEmails(clearMap);
+  }, [log]);
+
+  // Regenerate a single email (for the ↻ button) — no web search for speed
+  const genEmail = useCallback(async (contact, acct) => {
+    if (!contact.email?.includes("@")) return;
+    setLoadingEmails(p => ({ ...p, [contact.email]: true }));
+    const dtStr = acct.dt ? `${Math.round(acct.dt)} person data team` : "";
+    const prompt = `Ghostwrite a cold email from Connor Miller (SDR at Monte Carlo Data) to ${contact.name}, ${contact.title} at ${acct.n}.
+
+About ${acct.n}: ${acct.ind}, ${acct.emp.toLocaleString()} employees, ${acct.ci}. Stack: ${acct.ts?.join(", ") || "unknown"}. ${dtStr}
+${acct.lc && acct.lc.includes("Stage") ? `Active deal: ${acct.lc}` : "Cold outreach."}
+
+Write like a real person — friendly, specific to their role, zero marketing speak. Structure:
+- "Hi ${contact.name}," then a warm opener about what they're likely focused on
+- 1-2 sentences connecting their priorities to a real data/AI challenge  
+- 3 short bullets (6-10 words each) showing how Monte Carlo helps, each with a relevant [link](url) from: ${Object.values(RES.videos).slice(0,8).map(v => `"${v.title}": ${v.url}`).join("; ")}
+- Casual closing ask + "Connor"
+
+NO: "I noticed", "I came across", ~ symbol, "leverage", "unlock", exclamation marks, starting with "As"
+Subject: conversational, about them. Under 80 words total.
+
+Return ONLY JSON: {"email":{"name":"${contact.name}","title":"${contact.title}","account":"${acct.n}","subject":"...","body":"...","warm":false}}`;
+    try {
+      const { texts } = await askClaude(prompt, { web: false });
+      const p = parseJ(texts);
+      if (p?.email) { setEmailMap(prev => ({ ...prev, [contact.email]: p.email })); log(`✓ ${contact.name}`); }
+      else log(`✗ ${contact.name}`);
+    } catch (e) { log(`✗ ${e.message?.slice(0,30)}`); }
+    setLoadingEmails(p => ({ ...p, [contact.email]: false }));
+  }, [log]);
+
+  // Gmail draft
+  const createDraft = useCallback(async (contact, email) => {
+    if (!contact.email || !email) return;
+    setDraftStatus(p => ({ ...p, [contact.email]: "sending" }));
+    const htmlBody = email.body.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>').split("\n").map(l => { const t = l.trim(); if (!t) return "<br>"; if (/^[•\-\*]/.test(t)) return `<p style="margin:2px 0 2px 12px">${t}</p>`; return `<p style="margin:4px 0">${t}</p>`; }).join("");
+    try {
+      const { texts, mcpR } = await askClaude(`Create a Gmail draft using gmail_create_draft.\nTo: ${contact.email}\nSubject: ${email.subject}\nContent type: text/html\nBody:\n${htmlBody}\nCall the tool now.`, { mcp: true });
+      const all = [...texts, ...mcpR].join(" ");
+      const ok = all.toLowerCase().includes("draft") && (all.includes("created") || all.includes("draftId") || all.includes("success"));
+      setDraftStatus(p => ({ ...p, [contact.email]: ok ? "sent" : "error" }));
+      log(ok ? `✓ Draft: ${contact.name}` : `✗ Draft: ${contact.name}`);
+    } catch (e) { setDraftStatus(p => ({ ...p, [contact.email]: "error" })); log(`✗ ${e.message?.slice(0,30)}`); }
+  }, [log]);
+
+  // Per-account email cache (persists across panel open/close)
+  const [emailCache, setEmailCache] = useState({}); // { acctName: { email: emailObj } }
+
+  // Load email cache from storage on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await window.storage.get("mc_emails_v1");
+        if (stored?.value) {
+          const cached = JSON.parse(stored.value);
+          if (Object.keys(cached).length > 0) {
+            setEmailCache(cached);
+            log(`Loaded ${Object.values(cached).reduce((s,m) => s + Object.keys(m).length, 0)} cached emails`);
+          }
+        }
+      } catch {}
+    })();
+  }, [log]);
+  const [agentPhase, setAgentPhase] = useState("starting"); // starting | priorities | emails | done
+  const [agentProgress, setAgentProgress] = useState("");
+
+  // Generate emails for an account and cache them
+  const genAndCache = useCallback(async (acct, contactList) => {
+    const valid = contactList.filter(c => c.email?.includes("@"));
+    if (!valid.length) return {};
+    const contactBlock = valid.map((c, i) => `${i+1}. ${c.name} | ${c.title} | ${c.email}`).join("\n");
+    const dtStr = acct.dt ? `${Math.round(acct.dt)} person data team` : "";
+    const prompt = `You are ghostwriting cold outreach emails from Connor Miller, an SDR at Monte Carlo Data, to data and AI leaders at ${acct.n}.
+
+ABOUT ${acct.n.toUpperCase()}:
+${acct.ind} company, ${acct.emp.toLocaleString()} employees, based in ${acct.ci}${acct.st ? ` ${acct.st}` : ""}
+Tech stack: ${acct.ts?.join(", ") || "not confirmed"}
+${dtStr ? `Data org: ${dtStr}` : ""}
+${acct.lc && acct.lc.includes("Stage") ? `Current relationship: active deal (${acct.lc})` : "No current deal — cold outreach"}
+${companyPriorities[acct.n] ? `\nCOMPANY PRIORITIES:\n${companyPriorities[acct.n].map((p,j) => `${j+1}. ${p}`).join("\n")}` : ""}
+
+CONTACTS:
+${contactBlock}
+
+Write like Connor — friendly, sharp, did his homework. NOT a marketing bot. Each email:
+- "Hi [Name]," + warm opener about THEM
+- 1-2 sentences on their challenge
+- 3 short bullets (6-10 words) how MC helps, each with [link](url) from: ${Object.values(RES.videos).slice(0,10).map(v => `"${v.title}": ${v.url}`).join("; ")}
+- Casual ask + "Connor"
+
+NO: "I noticed", "I came across", ~ symbol, "leverage", "unlock", exclamation marks, "As you/your"
+Under 80 words each. Subject: conversational, about them.
+
+Return ONLY JSON: {"emails":[{"name":"...","title":"...","email":"...","account":"${acct.n}","subject":"...","body":"...","warm":false}]}`;
+
+    try {
+      const { texts } = await askClaude(prompt, { web: false });
+      const p = parseJ(texts);
+      if (p?.emails?.length) {
+        const map = {};
+        p.emails.forEach(e => { if (e.email) map[e.email] = e; });
+        valid.forEach(c => { if (!map[c.email]) { const m = p.emails.find(e => e.name === c.name); if (m) map[c.email] = { ...m, email: c.email }; } });
+        setEmailCache(prev => {
+          const merged = { ...prev, [acct.n]: { ...(prev[acct.n] || {}), ...map } };
+          try { window.storage.set("mc_emails_v1", JSON.stringify(merged)); } catch {}
+          return merged;
+        });
+        return map;
+      }
+    } catch (e) { log(`✗ ${acct.n}: ${e.message?.slice(0,30)}`); }
+    return {};
+  }, [companyPriorities, log]);
+
+  // ─── AGENT: Auto-run on mount — priorities then emails for T1 ───
+  const agentRunRef = useRef(false);
+  useEffect(() => {
+    if (agentRunRef.current) return;
+    agentRunRef.current = true;
+    const run = async () => {
+      // Wait for priorities to load (at least 50%)
+      setAgentPhase("priorities");
+      setAgentProgress("Loading company priorities...");
+      const waitPri = () => new Promise(res => {
+        const check = () => { if (Object.keys(companyPriorities).length >= Math.min(ACCTS.length, 20) || prioritiesLoaded) res(); else setTimeout(check, 3000); };
+        setTimeout(check, 5000); // give priorities a head start
+      });
+      await waitPri();
+
+      // Generate emails for all Tier 1 accounts with contacts
+      setAgentPhase("emails");
+      const tier1 = ACCTS.filter(a => a.t === 1 && FC[a.n]?.length > 0);
+      for (let i = 0; i < tier1.length; i++) {
+        const a = tier1[i];
+        if (emailCache[a.n] && Object.keys(emailCache[a.n]).length > 0) continue; // already cached
+        setAgentProgress(`Emails: ${a.n} (${i+1}/${tier1.length})`);
+        const list = FC[a.n].map(c => ({ ...c, source: "Plan", phone: "", linkedin: "", prior: "None" }));
+        await genAndCache(a, list);
+        await new Promise(r => setTimeout(r, 300));
+      }
+      setAgentPhase("done");
+      setAgentProgress(`Ready — ${tier1.length} accounts, all emails generated`);
+      log("Agent complete — Tier 1 accounts ready with contacts and emails");
+    };
+    setTimeout(run, 2000);
+  }, [companyPriorities, prioritiesLoaded, emailCache, genAndCache, log]);
+
+  // Open contacts panel — use cached data instantly
+  const openContacts = (acct) => {
+    genRef.current = acct.n;
+    setContactsAcct(acct);
+    setDraftStatus({});
+
+    // Load contacts
+    const list = FC[acct.n]?.map(c => ({ ...c, source: "Plan", phone: "", linkedin: "", prior: "None" })) || [];
+    setContacts(list);
+
+    // Load cached emails or generate
+    const cached = emailCache[acct.n];
+    if (cached && Object.keys(cached).length > 0) {
+      setEmailMap(cached);
+      setLoadingEmails({});
+    } else {
+      setEmailMap({});
+      setLoadingEmails({});
+      if (list.length) genAndCache(acct, list).then(map => { if (genRef.current === acct.n) setEmailMap(map); });
+    }
+  };
+
+  const filtered = accounts.filter(a => {
+    if (filter && a.t !== filter) return false;
+    if (search) { const s = search.toLowerCase(); return a.n.toLowerCase().includes(s) || a.ind?.toLowerCase().includes(s) || a.ci?.toLowerCase().includes(s); }
+    return true;
+  });
+  const isActive = loading || Object.values(loadingEmails).some(Boolean) || Object.values(loadingPriorities).some(Boolean) || agentPhase === "emails";
+  const priCount = Object.keys(companyPriorities).length;
+  const emailCacheCount = Object.values(emailCache).reduce((sum, m) => sum + Object.keys(m).length, 0);
+  const ec = Object.keys(emailMap).length;
+
+  return (
+    <div style={{ fontFamily: "'DM Sans', -apple-system, sans-serif", background: MC.bg, color: MC.text, minHeight: "100vh", padding: "20px 24px" }}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${MC.green}, ${MC.purple})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: MC.bg }}>MC</div>
+          <div>
+            <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Territory Agent</h1>
+            <div style={{ fontSize: 11, color: MC.textMuted }}>Connor Miller · Pacific Northwest</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 14, alignItems: "center", fontSize: 11, fontFamily: "'DM Mono', monospace" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: isActive ? MC.green : MC.textFaint, boxShadow: isActive ? `0 0 8px ${MC.green}` : "none", transition: "all .3s" }} /><span style={{ color: MC.textMuted }}>{accounts.length} accounts</span></div>
+          <span style={{ color: TC[1] }}>{accounts.filter(a=>a.t===1).length} strategic</span>
+          <span style={{ color: TC[2] }}>{accounts.filter(a=>a.t===2).length} growth</span>
+          {ec > 0 && <span style={{ color: MC.green }}>{ec} emails</span>}
+          <span style={{ color: priCount >= accounts.length ? MC.green : MC.purple }}>{priCount}/{accounts.length} priorities</span>
+          {emailCacheCount > 0 && <span style={{ color: MC.green }}>{emailCacheCount} emails cached</span>}
+          {agentPhase !== "done" && <span style={{ color: MC.amber }}>{agentProgress || agentPhase}</span>}
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search accounts..." style={{ flex: 1, maxWidth: 300, padding: "8px 14px", background: MC.bgInput, border: `1px solid ${MC.border}`, borderRadius: 8, color: MC.text, fontSize: 13, outline: "none" }} />
+        {[null,1,2,3].map(t => <button key={t??"a"} onClick={() => setFilter(t)} style={{ padding: "6px 14px", borderRadius: 20, border: `1px solid ${filter===t ? (t?TC[t]:MC.green)+"44" : MC.border}`, background: filter===t ? (t?TC[t]:MC.green)+"12" : "transparent", color: filter===t ? (t?TC[t]:MC.green) : MC.textMuted, fontSize: 11, fontWeight: 500, cursor: "pointer" }}>{t ? TL[t] : "All"}</button>)}
+      </div>
+
+      {/* Layout: accounts list + optional contacts panel */}
+      <div style={{ display: "grid", gridTemplateColumns: contactsAcct ? "1fr 1fr" : "1fr", gap: 16 }}>
+
+        {/* LEFT: Account list with expandable tiles */}
+        <div style={{ maxHeight: "76vh", overflowY: "auto" }}>
+          {filtered.map(a => {
+            const isExpanded = expandedAcct === a.id;
+            const ct = FC[a.n]?.length || 0;
+            const cachedCount = emailCache[a.n] ? Object.keys(emailCache[a.n]).length : 0;
+            return (
+              <div key={a.id} style={{ background: MC.bgCard, border: `1px solid ${isExpanded ? TC[a.t]+"44" : MC.border}`, borderLeft: `3px solid ${TC[a.t]}`, borderRadius: 10, marginBottom: 6, overflow: "hidden", transition: "all .15s" }}>
+                {/* Account header row */}
+                <div onClick={() => { const next = isExpanded ? null : a.id; setExpandedAcct(next); if (next && !companyPriorities[a.n] && !loadingPriorities[a.n]) fetchPriorities(a); }} style={{ padding: "12px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontWeight: 600, fontSize: 14, color: MC.text }}>{a.n}</span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: TC[a.t], background: TC[a.t]+"15", padding: "2px 8px", borderRadius: 10 }}>{TL[a.t]}</span>
+                      {a.oo > 0 && <span style={{ fontSize: 10, color: MC.green }}>● Deal</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: MC.textMuted, marginTop: 2 }}>{a.ind} · {fmt(a.emp)} emp · {a.ci}{a.st ? `, ${a.st}` : ""}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    {a.is > 0 && <div style={{ fontSize: 10, fontWeight: 600, color: a.is >= 80 ? MC.green : a.is >= 50 ? MC.amber : MC.textFaint, background: a.is >= 80 ? MC.greenBg : a.is >= 50 ? MC.amberBg : "transparent", padding: "2px 6px", borderRadius: 4 }}>{Math.round(a.is)}</div>}
+                    <svg width="16" height="16" viewBox="0 0 16 16" style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0)", transition: "transform .2s", color: MC.textFaint }}><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none"/></svg>
+                  </div>
+                </div>
+
+                {/* Expanded detail */}
+                {isExpanded && (
+                  <div style={{ padding: "0 16px 14px", borderTop: `1px solid ${MC.border}` }}>
+                    
+                    {/* Company Priorities — from web research */}
+                    <div style={{ marginTop: 10, marginBottom: 10, padding: "10px 14px", background: `linear-gradient(135deg, ${MC.amber}06, ${MC.amber}03)`, borderRadius: 8, border: `1px solid ${MC.amber}22` }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: MC.amber, letterSpacing: ".04em", marginBottom: 6 }}>COMPANY PRIORITIES</div>
+                      {loadingPriorities[a.n] && !companyPriorities[a.n] && (
+                        <div style={{ fontSize: 11, color: MC.textFaint, fontStyle: "italic" }}>Researching earnings reports, press releases, and public filings...</div>
+                      )}
+                      {companyPriorities[a.n]?.map((pr, pi) => (
+                        <div key={pi} style={{ fontSize: 12, color: MC.text, lineHeight: 1.5, marginTop: pi > 0 ? 5 : 0, display: "flex", gap: 8, alignItems: "flex-start" }}>
+                          <span style={{ color: MC.amber, flexShrink: 0, fontSize: 14, lineHeight: 1.2 }}>{pi + 1}.</span>
+                          <span>{pr}</span>
+                        </div>
+                      ))}
+                      {!loadingPriorities[a.n] && !companyPriorities[a.n] && (
+                        <button onClick={(e) => { e.stopPropagation(); fetchPriorities(a); }} style={{ fontSize: 11, color: MC.amber, background: "transparent", border: `1px solid ${MC.amberDim}`, borderRadius: 6, padding: "4px 12px", cursor: "pointer" }}>Research Priorities</button>
+                      )}
+                    </div>
+
+                    {/* Data & AI Priorities — from CRM signals */}
+                    {(() => {
+                      const priorities = getPriorities(a);
+                      return priorities.length > 0 ? (
+                        <div style={{ marginBottom: 10, padding: "10px 14px", background: `linear-gradient(135deg, ${MC.purple}08, ${MC.green}08)`, borderRadius: 8, border: `1px solid ${MC.purple}22` }}>
+                          <div style={{ fontSize: 10, fontWeight: 600, color: MC.purple, letterSpacing: ".04em", marginBottom: 6 }}>DATA & AI PRIORITIES</div>
+                          {priorities.map((pr, pi) => (
+                            <div key={pi} style={{ fontSize: 12, color: MC.text, lineHeight: 1.5, marginTop: pi > 0 ? 4 : 0, display: "flex", gap: 8, alignItems: "flex-start" }}>
+                              <span style={{ color: MC.green, flexShrink: 0, marginTop: 1 }}>→</span>
+                              <span>{pr}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
+
+                    {/* Company details */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px" }}>
+                      <Detail label="Employees" val={a.emp ? fmt(a.emp) : null} />
+                      <Detail label="Lifecycle" val={a.lc || null} />
+                      <Detail label="Data Team" val={a.dt ? `${Math.round(a.dt)} people` : null} />
+                      <Detail label="6sense" val={a.is ? `${Math.round(a.is)} — ${a.bs}` : null} />
+                      <Detail label="Snowflake" val={a.ss || null} />
+                      <Detail label="Databricks" val={a.ds || null} />
+                    </div>
+                    {a.ts?.length > 0 && <div style={{ marginTop: 8 }}><Detail label="Tech Stack" val={a.ts.join(", ")} /></div>}
+                    {a.cb && <div style={{ marginTop: 2 }}><Detail label="Partners" val={a.cb} /></div>}
+
+                    {/* Contacts button */}
+                    <button onClick={(e) => { e.stopPropagation(); openContacts(a); }} style={{
+                      marginTop: 12, width: "100%", padding: "10px 0", background: `linear-gradient(135deg, ${MC.green}18, ${MC.purple}18)`,
+                      border: `1px solid ${MC.green}33`, borderRadius: 8, color: MC.green, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      Contacts & Outreach{ct > 0 ? ` (${ct})` : ""}{cachedCount > 0 ? ` · ${cachedCount} emails ready` : ""}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* RIGHT: Contacts panel */}
+        {contactsAcct && (
+          <div style={{ background: MC.bgCard, borderRadius: 12, border: `1px solid ${MC.border}`, overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "76vh" }}>
+            {/* Panel header */}
+            <div style={{ padding: "14px 18px", borderBottom: `1px solid ${MC.border}`, flexShrink: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700 }}>{contactsAcct.n}</div>
+                  <div style={{ fontSize: 11, color: MC.textMuted, marginTop: 2, fontFamily: "'DM Mono', monospace" }}>
+                    {contacts.length} contacts · {ec} emails{loading === "contacts" ? " · loading..." : Object.values(loadingEmails).some(Boolean) ? " · generating..." : ""}
+                  </div>
+                </div>
+                <button onClick={() => { genRef.current = null; setContactsAcct(null); setContacts([]); setEmailMap({}); setLoadingEmails({}); setDraftStatus({}); }} style={{ padding: "4px 10px", background: "transparent", color: MC.textMuted, border: `1px solid ${MC.border}`, borderRadius: 6, cursor: "pointer", fontSize: 11 }}>✕</button>
+              </div>
+              {contacts.length > 0 && (
+                <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                  <button onClick={() => genAllEmails(contacts, contactsAcct)} disabled={Object.values(loadingEmails).some(Boolean)} style={{ flex: 1, padding: "8px 0", background: Object.values(loadingEmails).some(Boolean) ? MC.border : `linear-gradient(135deg, ${MC.green}18, ${MC.purple}18)`, border: `1px solid ${MC.green}33`, borderRadius: 8, color: Object.values(loadingEmails).some(Boolean) ? MC.textMuted : MC.green, fontSize: 12, fontWeight: 600, cursor: Object.values(loadingEmails).some(Boolean) ? "default" : "pointer" }}>
+                    {Object.values(loadingEmails).some(Boolean) ? "Generating..." : ec > 0 ? "↻ Regenerate All Emails" : "Generate All Emails"}
+                  </button>
+                  {ec > 0 && (
+                    <button onClick={async () => {
+                      const toDraft = contacts.filter(c => emailMap[c.email] && draftStatus[c.email] !== "sent");
+                      log(`Drafting ${toDraft.length} emails...`);
+                      for (const c of toDraft) { await createDraft(c, emailMap[c.email]); }
+                      log("All drafts complete");
+                    }} disabled={Object.values(draftStatus).some(s => s === "sending")} style={{ flex: 1, padding: "8px 0", background: MC.amberBg, border: `1px solid ${MC.amberDim}`, borderRadius: 8, color: MC.amber, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                      Draft All to Gmail
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Contacts list with inline emails */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 12px" }}>
+              {contacts.map((c, i) => (
+                <ContactItem key={`${c.email}-${i}`} c={c} email={emailMap[c.email]} isGenning={loadingEmails[c.email]} ds={draftStatus[c.email]} onDraft={createDraft} onRegen={() => genEmail(c, contactsAcct)} />
+              ))}
+              {contacts.length === 0 && loading === "contacts" && (
+                <div style={{ padding: 30, textAlign: "center", fontSize: 12, color: MC.textFaint }}>Loading contacts...</div>
+              )}
+            </div>
+
+            {/* Panel footer log */}
+            <div style={{ padding: "6px 14px", borderTop: `1px solid ${MC.border}`, fontFamily: "'DM Mono', monospace", fontSize: 9, color: MC.textFaint, flexShrink: 0 }}>
+              {logs.slice(-2).map((l,i) => <span key={i} style={{ marginRight: 10, opacity: i === 1 ? .6 : .25 }}>{l}</span>)}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
