@@ -1,14 +1,19 @@
-import { defineConfig } from 'vite'
+import { defineConfig, transformWithEsbuild } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-    plugins: [react()],
-    build: {
-          outDir: 'dist',
-          sourcemap: false,
-    },
-  esbuild: {
-          loader: 'jsx',
-          include: /SDR Agent/,
-  },
+      plugins: [
+          {
+                    name: 'jsx-extensionless',
+                    async transform(code, id) {
+                                if (!id.endsWith('SDR Agent')) return null
+                                return transformWithEsbuild(code, id, { loader: 'jsx', jsx: 'automatic' })
+                    },
+          },
+              react(),
+            ],
+      build: {
+              outDir: 'dist',
+              sourcemap: false,
+      },
 })
